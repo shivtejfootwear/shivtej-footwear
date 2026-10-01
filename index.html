@@ -20,6 +20,14 @@ footer{background:#101522;color:#cbd3df;padding:35px 18px}.foot{max-width:1180px
 @media(max-width:900px){.products{grid-template-columns:repeat(3,1fr)}.filterGrid{grid-template-columns:repeat(3,1fr)}.slide{grid-template-columns:1fr 1fr}.features{grid-template-columns:repeat(2,1fr)}.feature:nth-child(2){border-right:0}.feature:nth-child(-n+2){border-bottom:1px solid var(--line)}.foot{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.logo{height:43px;max-width:190px}.tabs{top:82px}.slide{grid-template-columns:1fr;min-height:500px;padding:20px}.slide h1{font-size:28px}.slideMedia{height:205px}.products{grid-template-columns:repeat(2,1fr);gap:10px}.photo{height:165px}.filterGrid{grid-template-columns:1fr 1fr}.detail{grid-template-columns:1fr}.galleryMain{height:280px}.foot{grid-template-columns:1fr}.banner{display:block}.banner .primary{margin-top:12px}}
 @media(max-width:420px){.filterGrid{grid-template-columns:1fr}.products{grid-template-columns:1fr 1fr}.body{padding:9px}.body h3{font-size:14px}.price{font-size:16px}.promo{min-width:270px}}
+
+.adminSummary{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fafafa;margin-bottom:12px}
+.adminList{display:grid;gap:10px;max-height:55vh;overflow:auto}
+.adminOrder{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+.adminOrder>div:first-child{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.adminOrder select{padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.adminActions{display:flex;gap:8px;margin-top:10px}
+.badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9}
 </style>
 </head>
 <body>
@@ -40,7 +48,7 @@ footer{background:#101522;color:#cbd3df;padding:35px 18px}.foot{max-width:1180px
  <button class="tab" onclick="showAll(this)">Shop</button>
  <button class="tab" onclick="document.getElementById('categories').scrollIntoView({behavior:'smooth'})">Categories</button>
  <button class="tab" onclick="document.getElementById('offers').scrollIntoView({behavior:'smooth'})">Offers</button>
- <button class="tab" onclick="openOrders()">My Orders</button>
+ <button class="tab" onclick="openOrders()">My Orders</button><button onclick="openAdminPanel()">Admin</button>
 </nav>
 
 <main>
@@ -190,6 +198,55 @@ function changeQty(n){chosenQty=Math.max(1,chosenQty+n);$("qty").textContent=cho
 function addVariantCart(id){if(!chosenSize){toast("Please select a size");return}let p=products.find(x=>x.id===id),c=detailColour[id]||colours(p)[0];cart.push({id,q:chosenQty,colour:c,size:chosenSize});save();closeModal();toast("Added to cart")}
 function buyNow(id){if(!chosenSize){toast("Please select a size");return}cart.push({id,q:chosenQty,colour:detailColour[id]||colours(products.find(x=>x.id===id))[0],size:chosenSize});save();openCart()}
 
+
+function adminStoreKey(){ return "shivtej_admin_orders_v1"; }
+function getAdminOrders(){
+  try { return JSON.parse(localStorage.getItem(adminStoreKey()) || "[]"); }
+  catch(e){ return []; }
+}
+function saveAdminOrders(items){ localStorage.setItem(adminStoreKey(), JSON.stringify(items)); }
+
+function openAdminPanel(){
+  const orders = getAdminOrders();
+  const rows = orders.length ? orders.map((o,i)=>`
+    <div class="adminOrder">
+      <div><b>${o.id || "Order"}</b><span class="badge">${o.status || "New"}</span></div>
+      <div class="meta">${o.customer?.name || ""} · ${o.customer?.mobile || ""}</div>
+      <div class="meta">${o.items?.map(x=>`${x.name} / ${x.color||""} / ${x.size||""} × ${x.qty}`).join("<br>") || ""}</div>
+      <div class="adminActions">
+        <select onchange="adminSetStatus(${i},this.value)">
+          ${["New","Confirmed","Packed","Shipped","Delivered","Cancelled"].map(s=>`<option ${s===(o.status||"New")?"selected":""}>${s}</option>`).join("")}
+        </select>
+        <button class="light" onclick="adminDeleteOrder(${i})">Delete</button>
+      </div>
+    </div>`).join("")
+    : `<p class="meta">No orders are stored on this device yet.</p>`;
+
+  featureModal("Shivtej Footwear — Admin Orders", `
+    <div class="adminSummary">
+      <b>${orders.length}</b> total orders
+    </div>
+    <div class="adminList">${rows}</div>
+    <p class="meta" style="margin-top:12px">
+      This is a local prototype admin panel. A real central database/login will be connected before production.
+    </p>`);
+}
+
+function adminSetStatus(index,status){
+  const orders = getAdminOrders();
+  if(!orders[index]) return;
+  orders[index].status = status;
+  saveAdminOrders(orders);
+  openAdminPanel();
+}
+function adminDeleteOrder(index){
+  const orders = getAdminOrders();
+  if(!orders[index]) return;
+  orders.splice(index,1);
+  saveAdminOrders(orders);
+  openAdminPanel();
+}
+
 function featureModal(title, body){
  $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><h2>${title}</h2>${body}`;
  $("modal").classList.add("show");
@@ -213,7 +270,22 @@ function checkout(){
 }
 function placeOrder(total){
  const name=$("custName").value.trim(),phone=$("custPhone").value.trim(),addr=$("custAddress").value.trim();if(!name||!phone||!addr){toast("Please fill customer details");return}
- orders.unshift({id:"SW"+Date.now(),date:new Date().toLocaleString(),items:[...cart],total,name,phone,addr,status:"Order received"});cart=[];save();$("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:25px"><div style="font-size:48px">✓</div><h2>Order Received</h2><p>Your demo order number is <b>${orders[0].id}</b>.</p><p class="meta">For live payment and shipping, gateway + backend + Shiprocket integration will be connected separately.</p><button class="primary" onclick="closeModal()">Continue Shopping</button></div>`}
+ const orderId="SW"+Date.now();
+ const orderItems=cart.map(x=>{let p=products.find(p=>p.id===x.id);return {id:x.id,q:x.q,colour:x.colour,size:x.size,name:p?.name||"Product",price:p?.price||0}});
+ const order={id:orderId,date:new Date().toLocaleString(),items:[...cart],total,name,phone,addr,status:"Order received"};
+  try {
+    const adminOrders = getAdminOrders();
+    adminOrders.unshift(order);
+    saveAdminOrders(adminOrders);
+  } catch(e) {}
+
+ orders.unshift(order);save();
+ const lines=orderItems.map(x=>`${x.name} | ${x.colour} | Size ${x.size} | Qty ${x.q} | ₹${x.price*x.q}`).join("\n");
+ const msg=`New Shivtej Footwear Order\nOrder ID: ${orderId}\nCustomer: ${name}\nMobile: ${phone}\nAddress: ${addr}\n\nItems:\n${lines}\n\nTotal: ₹${total}\nPayment: ${$("pay").value}`;
+ const wa="https://wa.me/918898900888?text="+encodeURIComponent(msg);
+ cart=[];save();
+ $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:25px"><div style="font-size:48px">✓</div><h2>Order Received</h2><p>Your order number is <b>${orderId}</b>.</p><p class="meta">Your order is saved on this device. For this GitHub/static version, send the order to Shivtej Footwear on WhatsApp so the shop receives it immediately.</p><a class="primary" style="display:block;text-decoration:none;padding:14px;margin-top:14px" href="${wa}" target="_blank" rel="noopener">Send Order on WhatsApp</a><button class="light" style="width:100%;margin-top:8px;padding:13px" onclick="openOrders()">View My Orders</button><button class="outline" style="width:100%;margin-top:8px;padding:13px" onclick="closeModal()">Continue Shopping</button></div>`
+}
 function openOrders(){$("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><h2>My Orders</h2>${orders.length?orders.map(o=>`<div class="order"><b>${o.id}</b><div class="meta">${o.date} · ${esc(o.status)}</div><b>₹${o.total}</b><div class="meta">${esc(o.name)} · ${esc(o.phone)}</div></div>`).join(""):'<div class="empty">No orders yet.</div>'}`;$("modal").classList.add("show")}
 function openAdd(){
  $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><h2>Add / Manage Product</h2><p class="meta">Upload multiple photos and occasional videos. Add multiple colours; each colour has its own sizes and stock.</p><form class="form" onsubmit="createProduct(event)"><input id="pn" required placeholder="Product name"><input id="pa" placeholder="Article number"><input id="pb" placeholder="Brand"><select id="pg"><option>Men</option><option>Ladies</option><option>Kids</option><option>Sports</option><option>Chappal</option><option>Sandals</option><option>Slippers</option><option>Loafers</option><option>School</option></select><input id="pp" type="number" required placeholder="Selling price"><input id="pm" type="number" placeholder="MRP"><textarea id="pd" placeholder="Product description"></textarea><label class="upload">Product photos / videos<input id="pf" type="file" accept="image/*,video/*" multiple></label><div class="variantBox"><b>Colour & Size/Stock</b><div id="variantRows"></div><button type="button" class="outline" style="margin-top:9px" onclick="addVariantRow()">＋ Add Colour</button></div><label><input id="pnew" type="checkbox" checked> Show this item in the TOP New Items swipe carousel</label><button class="add" style="padding:14px">Save Product</button></form>`;
