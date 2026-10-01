@@ -28,7 +28,7 @@ footer{background:#101522;color:#cbd3df;padding:35px 18px}.foot{max-width:1180px
 .adminOrder select{padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff}
 .adminActions{display:flex;gap:8px;margin-top:10px}
 .badge{font-size:11px;padding:4px 8px;border-radius:999px;background:#f1f5f9}
-</style>
+.productForm{display:grid;gap:9px}.productForm input{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:9px}.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.variantRow{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:7px}.variantRow input{padding:9px;border:1px solid var(--line);border-radius:8px}</style>
 </head>
 <body>
 <header class="top">
@@ -206,6 +206,30 @@ function getAdminOrders(){
 }
 function saveAdminOrders(items){ localStorage.setItem(adminStoreKey(), JSON.stringify(items)); }
 
+
+function productStoreKey(){return "shivtej_products_v1";}
+function getProducts(){try{return JSON.parse(localStorage.getItem(productStoreKey())||"[]")}catch(e){return[]}}
+function saveProducts(x){localStorage.setItem(productStoreKey(),JSON.stringify(x))}
+function openProductManager(){
+ const ps=getProducts();
+ const cards=ps.length?ps.map((p,i)=>`<div class="adminOrder"><div><b>${p.name||"Unnamed"}</b><span class="badge">${p.category||"Other"}</span></div><div class="meta">Article: ${p.article||"-"} · Brand: ${p.brand||"-"} · MRP ₹${p.mrp||0} · Sale ₹${p.price||0}</div><div class="meta">Online: ${p.onlineStock||0} · Offline: ${p.offlineStock||0}</div><div class="meta">Colours: ${(p.colours||[]).map(c=>c.name+" ("+(c.sizes||[]).map(s=>s.size+":"+s.stock).join(", ")+")").join(" · ")||"None"}</div><div class="adminActions"><button class="light" onclick="editProduct(${i})">Edit</button><button class="light" onclick="deleteProduct(${i})">Delete</button><button class="light" onclick="toggleProduct(${i})">${p.visible===false?"Show":"Hide"}</button></div></div>`).join(""):`<p class="meta">No products added yet.</p>`;
+ featureModal("Product & Stock Management",`<button class="primary" style="width:100%;padding:13px;margin-bottom:12px" onclick="showProductForm()">+ Add Product</button><div class="adminList">${cards}</div>`);
+}
+function showProductForm(index=-1){
+ const ps=getProducts(),p=index>=0?ps[index]:{name:"",article:"",brand:"",category:"",mrp:"",price:"",onlineStock:0,offlineStock:0,visible:true,colours:[]};
+ const rows=(p.colours||[]).map(c=>`<div class="variantRow"><input class="pColor" value="${c.name||""}" placeholder="Colour e.g. Black"><input class="pSizes" value="${(c.sizes||[]).map(s=>s.size+":"+s.stock).join(", ")}" placeholder="Sizes e.g. 6:5, 7:3, 8:0"></div>`).join("");
+ featureModal(index>=0?"Edit Product":"Add Product",`<div class="productForm"><input id="pName" placeholder="Product name" value="${p.name||""}"><input id="pArticle" placeholder="Article" value="${p.article||""}"><input id="pBrand" placeholder="Brand" value="${p.brand||""}"><input id="pCategory" placeholder="Category" value="${p.category||""}"><div class="formGrid"><input id="pMrp" type="number" placeholder="MRP" value="${p.mrp||""}"><input id="pPrice" type="number" placeholder="Selling price" value="${p.price||""}"></div><div class="formGrid"><input id="pOnline" type="number" min="0" placeholder="Online stock" value="${p.onlineStock||0}"><input id="pOffline" type="number" min="0" placeholder="Offline stock" value="${p.offlineStock||0}"></div><label>Colour + size stock</label><div id="colourRows">${rows||'<div class="variantRow"><input class="pColor" placeholder="Colour e.g. Black"><input class="pSizes" placeholder="Sizes e.g. 6:5, 7:3, 8:0"></div>'}</div><button class="light" onclick="addColourRow()">+ Add another colour</button><label><input id="pVisible" type="checkbox" ${p.visible!==false?"checked":""}> Show on website</label><button class="primary" style="width:100%;padding:13px" onclick="saveProduct(${index})">Save Product</button></div>`);
+}
+function addColourRow(){const w=document.getElementById("colourRows"),d=document.createElement("div");d.className="variantRow";d.innerHTML='<input class="pColor" placeholder="Colour e.g. Black"><input class="pSizes" placeholder="Sizes e.g. 6:5, 7:3, 8:0">';w.appendChild(d)}
+function saveProduct(index){
+ const name=pName.value.trim(),category=pCategory.value.trim(); if(!name||!category){alert("Product name and category are required.");return}
+ const colours=[...document.querySelectorAll(".variantRow")].map(r=>({name:r.querySelector(".pColor").value.trim(),sizes:r.querySelector(".pSizes").value.split(",").map(x=>x.trim()).filter(Boolean).map(x=>{let a=x.split(":");return{size:a[0].trim(),stock:Math.max(0,Number(a[1]||0))}})})).filter(x=>x.name);
+ const p={name,article:pArticle.value.trim(),brand:pBrand.value.trim(),category,mrp:Number(pMrp.value||0),price:Number(pPrice.value||0),onlineStock:Math.max(0,Number(pOnline.value||0)),offlineStock:Math.max(0,Number(pOffline.value||0)),visible:pVisible.checked,colours,updatedAt:new Date().toISOString()};
+ const ps=getProducts();if(index>=0)ps[index]=p;else ps.unshift(p);saveProducts(ps);openProductManager();
+}
+function editProduct(i){showProductForm(i)}
+function deleteProduct(i){const ps=getProducts();if(confirm("Delete this product?")){ps.splice(i,1);saveProducts(ps);openProductManager()}}
+function toggleProduct(i){const ps=getProducts();ps[i].visible=ps[i].visible===false;saveProducts(ps);openProductManager()}
 function openAdminPanel(){
   const orders = getAdminOrders();
   const rows = orders.length ? orders.map((o,i)=>`
@@ -223,7 +247,7 @@ function openAdminPanel(){
     : `<p class="meta">No orders are stored on this device yet.</p>`;
 
   featureModal("Shivtej Footwear — Admin Orders", `
-    <div class="adminSummary">
+    <button class="primary" style="width:100%;padding:13px;margin-bottom:10px" onclick="openProductManager()">Manage Products & Stock</button><div class="adminSummary">
       <b>${orders.length}</b> total orders
     </div>
     <div class="adminList">${rows}</div>
