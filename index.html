@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#101522">
 <title>Shivtej Footwear | Official Store</title>
-<meta name="shivtej-build" content="V3.1-barcode-msg91-otp-fixed-V4">
+<meta name="shivtej-build" content="V3.1-barcode-msg91-otp">
 <style>
 :root{--nav:#101522;--red:#e51d2a;--red2:#ff4b55;--bg:#f6f7fa;--card:#fff;--text:#151b28;--muted:#667085;--line:#e4e7ec;--soft:#eef1f5;--green:#11845b;--shadow:0 8px 30px rgba(16,21,34,.08)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -436,23 +436,51 @@ const ST_MSG91_WIDGET_ID="366a646f7a79303536393439";
 const ST_MSG91_TOKEN="577514TAp5sOSQ6ac2710bP1";
 const ST_CUSTOMER_AUTH_KEY="shivtej_customer_msg91_v1";
 const ST_ADMIN_AUTH_KEY="shivtej_admin_msg91_v1";
-let stMsg91ScriptReady=null;
-let stMsg91InitPromise=null;
-let stMsg91CaptchaId=null;
+let stMsg91Ready=null;
 
-function stLoadMsg91Script(){
-  if(stMsg91ScriptReady)return stMsg91ScriptReady;
-  stMsg91ScriptReady=new Promise((resolve,reject)=>{
+function stLoadMsg91(){
+  if(stMsg91Ready)return stMsg91Ready;
+  stMsg91Ready=new Promise((resolve,reject)=>{
+    const configuration={
+      widgetId:ST_MSG91_WIDGET_ID,
+      tokenAuth:ST_MSG91_TOKEN,
+      identifier:"",
+      exposeMethods:true,
+      success:(data)=>console.log("MSG91 success response",data),
+      failure:(error)=>console.log("MSG91 failure reason",error)
+    };
+    let settled=false;
+    const finish=(err)=>{if(settled)return;settled=true;err?reject(err):resolve()};
+    const waitForMethods=()=>{
+      const ready=typeof window.sendOtp==="function" && typeof window.verifyOtp==="function";
+      if(ready){finish();return;}
+      const started=Number(window.__shivtejMsg91WaitStart||0);
+      if(!started)window.__shivtejMsg91WaitStart=Date.now();
+      if(Date.now()-Number(window.__shivtejMsg91WaitStart)>15000){
+        finish(new Error("MSG91 OTP methods are not ready. Please refresh once and try again."));
+        return;
+      }
+      setTimeout(waitForMethods,100);
+    };
+    const initialize=()=>{
+      try{
+        if(typeof window.initSendOTP!=="function")throw new Error("MSG91 OTP provider failed to load");
+        window.initSendOTP(configuration);
+        waitForMethods();
+      }catch(e){finish(e)}
+    };
     const existing=document.querySelector('script[data-shivtej-msg91="1"]');
     if(existing){
-      if(typeof window.initSendOTP==="function"){resolve();return;}
-      const started=Date.now();
-      const wait=()=>{
-        if(typeof window.initSendOTP==="function"){resolve();return;}
-        if(Date.now()-started>15000){reject(new Error("Unable to initialize MSG91 OTP provider."));return;}
-        setTimeout(wait,100);
-      };
-      wait();
+      if(typeof window.initSendOTP==="function")initialize();
+      else {
+        const started=Date.now();
+        const waitForInit=()=>{
+          if(typeof window.initSendOTP==="function"){initialize();return;}
+          if(Date.now()-started>15000){finish(new Error("Unable to initialize MSG91 OTP provider."));return;}
+          setTimeout(waitForInit,100);
+        };
+        waitForInit();
+      }
       return;
     }
     const urls=["https://verify.msg91.com/otp-provider.js","https://verify.phone91.com/otp-provider.js"];
@@ -460,47 +488,19 @@ function stLoadMsg91Script(){
     const attempt=()=>{
       const sc=document.createElement("script");
       sc.src=urls[i];sc.async=true;sc.dataset.shivtejMsg91="1";
-      sc.onload=()=>resolve();
+      sc.onload=()=>initialize();
       sc.onerror=()=>{
-        sc.remove();i++;
+        sc.remove();
+        i++;
         if(i<urls.length)attempt();
-        else reject(new Error("Unable to load MSG91 OTP provider."));
+        else finish(new Error("Unable to load MSG91 OTP provider."));
       };
       document.head.appendChild(sc);
     };
     attempt();
   });
-  return stMsg91ScriptReady;
+  return stMsg91Ready;
 }
-
-function stInitMsg91ForModal(captchaId){
-  stMsg91CaptchaId=captchaId;
-  stMsg91InitPromise=stLoadMsg91Script().then(()=>new Promise((resolve,reject)=>{
-    try{
-      if(typeof window.initSendOTP!=="function")throw new Error("MSG91 OTP provider failed to load");
-      const configuration={
-        widgetId:ST_MSG91_WIDGET_ID,
-        tokenAuth:ST_MSG91_TOKEN,
-        identifier:"",
-        exposeMethods:true,
-        captchaRenderId:captchaId,
-        success:(data)=>console.log("MSG91 success response",data),
-        failure:(error)=>console.log("MSG91 failure reason",error)
-      };
-      window.initSendOTP(configuration);
-      const started=Date.now();
-      const wait=()=>{
-        const ready=typeof window.sendOtp==="function" && typeof window.verifyOtp==="function";
-        if(ready){resolve();return;}
-        if(Date.now()-started>15000){reject(new Error("MSG91 OTP methods are not ready. Please refresh once and try again."));return;}
-        setTimeout(wait,100);
-      };
-      wait();
-    }catch(e){reject(e)}
-  }));
-  return stMsg91InitPromise;
-}
-
 function stShowAuthMsg(id,msg,ok=false){const box=$(id);if(box)box.innerHTML=`<div class="stAuthMsg ${ok?'stAuthOk':'stAuthErr'}">${msg}</div>`}
 function stValidMobile(m){const n=String(m||"").replace(/\D/g,"");return /^[6-9]\d{9}$/.test(n)}
 function stCustomerAuth(){try{return JSON.parse(localStorage.getItem(ST_CUSTOMER_AUTH_KEY)||"null")}catch(e){return null}}
@@ -511,20 +511,17 @@ function stClearCustomer(){localStorage.removeItem(ST_CUSTOMER_AUTH_KEY)}
 function stAdminVerified(){try{const a=JSON.parse(localStorage.getItem(ST_ADMIN_AUTH_KEY)||"null");return !!(a&&a.verified&&a.mobile)}catch(e){return false}}
 function stClearAdmin(){localStorage.removeItem(ST_ADMIN_AUTH_KEY)}
 function openCustomerSecureLogin(onSuccess){
-  const captchaId="shivtejMsg91CaptchaCustomer";
-  featureModal("Customer Mobile Verification",`<div class="stAuthCard"><p class="meta">Enter your Indian mobile number. A real OTP will be sent by MSG91 SMS before checkout.</p><input id="stCustMobile" inputmode="numeric" maxlength="14" placeholder="10-digit Indian mobile number" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d8dde6;border-radius:9px"><div id="${captchaId}" style="margin-top:10px;min-height:0"></div><button id="stCustSendBtn" class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stSendCustomerOtp()">Send OTP</button><div id="stCustAuthMsg"></div><div id="stCustContinue" style="display:none;margin-top:9px"></div></div>`);
+  featureModal("Customer Mobile Verification",`<div class="stAuthCard"><p class="meta">Enter your Indian mobile number. A real OTP will be sent by MSG91 SMS before checkout.</p><input id="stCustMobile" inputmode="numeric" maxlength="14" placeholder="10-digit Indian mobile number" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d8dde6;border-radius:9px"><button class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stSendCustomerOtp()">Send OTP</button><div id="stCustAuthMsg"></div><div id="stCustContinue" style="display:none;margin-top:9px"></div></div>`);
   window.stCustomerLoginSuccess=onSuccess;
-  stInitMsg91ForModal(captchaId).catch(e=>stShowAuthMsg("stCustAuthMsg",e.message||"MSG91 OTP service could not be loaded."));
 }
 async function stSendCustomerOtp(){
  const m=($("stCustMobile")?.value||"").replace(/\D/g,"");
  if(!stValidMobile(m)){stShowAuthMsg("stCustAuthMsg","Enter a valid 10-digit Indian mobile number.");return}
- const btn=$("stCustSendBtn");if(btn){btn.disabled=true;btn.textContent="Sending OTP…"}
  stShowAuthMsg("stCustAuthMsg","Sending OTP…",true);
  try{
-  await (stMsg91InitPromise||stLoadMsg91Script());
+  await stLoadMsg91();
   if(typeof window.sendOtp!=="function")throw new Error("MSG91 Send OTP method is not ready. Please refresh once and try again.");
-  if(typeof window.isCaptchaVerified==="function" && window.isCaptchaVerified()===false)throw new Error("MSG91 Captcha is not verified. Complete the captcha shown above. If you are testing this HTML as a local content:// file, disable Captcha Validation in the MSG91 widget settings, save the widget, then reload the website from HTTPS.");
+  if(typeof window.isCaptchaVerified==="function" && window.isCaptchaVerified()===false)throw new Error("MSG91 Captcha is not verified. In the MSG91 widget, disable Captcha Validation for this widget, save the widget, then refresh this page.");
   let finished=false;
   const timer=setTimeout(()=>{if(finished)return;finished=true;stShowAuthMsg("stCustAuthMsg","MSG91 is not completing the OTP request. Check the widget Captcha Validation setting, save the widget, then refresh the page and try again.")},30000);
   window.sendOtp("91"+m,(data)=>{
@@ -533,30 +530,27 @@ async function stSendCustomerOtp(){
    const box=$("stCustAuthMsg");
    if(box)box.innerHTML=`<div class="stAuthMsg stAuthOk">OTP sent successfully to +91 ${m}.</div><input id="stCustOtp" class="stAuthOtp" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="Enter OTP"><button class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stVerifyCustomerOtp()">Verify OTP</button>`;
   },(error)=>{if(finished)return;finished=true;clearTimeout(timer);stShowAuthMsg("stCustAuthMsg",`OTP could not be sent. ${esc(String(error?.message||error||"Please try again."))}`)});
- }catch(e){stShowAuthMsg("stCustAuthMsg",e.message||"MSG91 OTP service could not be loaded.")}finally{const btn=$("stCustSendBtn");if(btn){btn.disabled=false;btn.textContent="Send OTP"}}
+ }catch(e){stShowAuthMsg("stCustAuthMsg",e.message||"MSG91 OTP service could not be loaded.")}
 }
 async function stVerifyCustomerOtp(){
  let x=null;try{x=JSON.parse(sessionStorage.getItem("shivtej_msg91_req")||"null")}catch(e){}
  const code=($("stCustOtp")?.value||"").trim();
  if(!x||x.role!=="customer"||Date.now()>x.expires){stShowAuthMsg("stCustAuthMsg","OTP expired. Please request a new OTP.");return}
- if(!/^\d{4,8}$/.test(code)){stShowAuthMsg("stCustAuthMsg","Enter the OTP received by SMS.");return}
+ if(!/^\\d{4,8}$/.test(code)){stShowAuthMsg("stCustAuthMsg","Enter the OTP received by SMS.");return}
  stShowAuthMsg("stCustAuthMsg","Verifying OTP…",true);
- try{await (stMsg91InitPromise||stLoadMsg91Script());if(typeof window.verifyOtp!=="function")throw new Error("MSG91 Verify OTP method is not ready. Please try again.");window.verifyOtp(String(code),(data)=>{const token=data?.accessToken||data?.access_token||data?.token||null;stSaveCustomer(x.mobile,token);sessionStorage.removeItem("shivtej_msg91_req");toast("Mobile verified");closeModal();const cb=window.stCustomerLoginSuccess;window.stCustomerLoginSuccess=null;if(typeof cb==="function")cb()},(error)=>stShowAuthMsg("stCustAuthMsg",`Invalid OTP. ${esc(String(error?.message||error||"Please try again."))}`),x.reqId||undefined)}catch(e){stShowAuthMsg("stCustAuthMsg",e.message||"OTP verification failed.")}
+ try{await stLoadMsg91();if(typeof window.verifyOtp!=="function")throw new Error("MSG91 Verify OTP method is not ready. Please try again.");window.verifyOtp(String(code),(data)=>{const token=data?.accessToken||data?.access_token||data?.token||null;stSaveCustomer(x.mobile,token);sessionStorage.removeItem("shivtej_msg91_req");toast("Mobile verified");closeModal();const cb=window.stCustomerLoginSuccess;window.stCustomerLoginSuccess=null;if(typeof cb==="function")cb()},(error)=>stShowAuthMsg("stCustAuthMsg",`Invalid OTP. ${esc(String(error?.message||error||"Please try again."))}`),x.reqId||undefined)}catch(e){stShowAuthMsg("stCustAuthMsg",e.message||"OTP verification failed.")}
 }
 function openAdminSecureLogin(){
- const captchaId="shivtejMsg91CaptchaAdmin";
- featureModal("Admin Mobile OTP",`<div class="stAuthCard"><p class="meta">Admin portal access requires a verified mobile OTP through MSG91.</p><input id="stAdminMobile" inputmode="numeric" maxlength="14" placeholder="Admin 10-digit Indian mobile number" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d8dde6;border-radius:9px"><div id="${captchaId}" style="margin-top:10px;min-height:0"></div><button id="stAdminSendBtn" class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stSendAdminOtp()">Send Admin OTP</button><div id="stAdminAuthMsg"></div></div>`);
- stInitMsg91ForModal(captchaId).catch(e=>stShowAuthMsg("stAdminAuthMsg",e.message||"MSG91 OTP service could not be loaded."));
+ featureModal("Admin Mobile OTP",`<div class="stAuthCard"><p class="meta">Admin portal access requires a verified mobile OTP through MSG91.</p><input id="stAdminMobile" inputmode="numeric" maxlength="14" placeholder="Admin 10-digit Indian mobile number" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #d8dde6;border-radius:9px"><button class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stSendAdminOtp()">Send Admin OTP</button><div id="stAdminAuthMsg"></div></div>`);
 }
 async function stSendAdminOtp(){
  const m=($("stAdminMobile")?.value||"").replace(/\D/g,"");
  if(!stValidMobile(m)){stShowAuthMsg("stAdminAuthMsg","Enter a valid 10-digit Indian mobile number.");return}
- const btn=$("stAdminSendBtn");if(btn){btn.disabled=true;btn.textContent="Sending OTP…"}
  stShowAuthMsg("stAdminAuthMsg","Sending OTP…",true);
  try{
-  await (stMsg91InitPromise||stLoadMsg91Script());
+  await stLoadMsg91();
   if(typeof window.sendOtp!=="function")throw new Error("MSG91 Send OTP method is not ready. Please refresh once and try again.");
-  if(typeof window.isCaptchaVerified==="function" && window.isCaptchaVerified()===false)throw new Error("MSG91 Captcha is not verified. Complete the captcha shown above. If you are testing this HTML as a local content:// file, disable Captcha Validation in the MSG91 widget settings, save the widget, then reload the website from HTTPS.");
+  if(typeof window.isCaptchaVerified==="function" && window.isCaptchaVerified()===false)throw new Error("MSG91 Captcha is not verified. In the MSG91 widget, disable Captcha Validation for this widget, save the widget, then refresh this page.");
   let finished=false;
   const timer=setTimeout(()=>{if(finished)return;finished=true;stShowAuthMsg("stAdminAuthMsg","MSG91 is not completing the OTP request. Check the widget Captcha Validation setting, save the widget, then refresh the page and try again.")},30000);
   window.sendOtp("91"+m,(data)=>{
@@ -565,15 +559,15 @@ async function stSendAdminOtp(){
    const box=$("stAdminAuthMsg");
    if(box)box.innerHTML=`<div class="stAuthMsg stAuthOk">Admin OTP sent to +91 ${m}.</div><input id="stAdminOtp" class="stAuthOtp" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="Enter OTP"><button class="primary" style="width:100%;padding:12px;margin-top:9px" onclick="stVerifyAdminOtp()">Verify OTP</button>`;
   },(error)=>{if(finished)return;finished=true;clearTimeout(timer);stShowAuthMsg("stAdminAuthMsg",`OTP could not be sent. ${esc(String(error?.message||error||"Please try again."))}`)});
- }catch(e){stShowAuthMsg("stAdminAuthMsg",e.message||"MSG91 OTP service could not be loaded.")}finally{const btn=$("stAdminSendBtn");if(btn){btn.disabled=false;btn.textContent="Send Admin OTP"}}
+ }catch(e){stShowAuthMsg("stAdminAuthMsg",e.message||"MSG91 OTP service could not be loaded.")}
 }
 async function stVerifyAdminOtp(){
  let x=null;try{x=JSON.parse(sessionStorage.getItem("shivtej_admin_msg91_req")||"null")}catch(e){}
  const code=($("stAdminOtp")?.value||"").trim();
  if(!x||x.role!=="admin"||Date.now()>x.expires){stShowAuthMsg("stAdminAuthMsg","OTP expired. Please request a new OTP.");return}
- if(!/^\d{4,8}$/.test(code)){stShowAuthMsg("stAdminAuthMsg","Enter the OTP received by SMS.");return}
+ if(!/^\\d{4,8}$/.test(code)){stShowAuthMsg("stAdminAuthMsg","Enter the OTP received by SMS.");return}
  stShowAuthMsg("stAdminAuthMsg","Verifying OTP…",true);
- try{await (stMsg91InitPromise||stLoadMsg91Script());if(typeof window.verifyOtp!=="function")throw new Error("MSG91 Verify OTP method is not ready. Please try again.");window.verifyOtp(String(code),(data)=>{const token=data?.accessToken||data?.access_token||data?.token||null;localStorage.setItem(ST_ADMIN_AUTH_KEY,JSON.stringify({mobile:x.mobile,verified:true,loginAt:new Date().toISOString(),msg91AccessToken:token}));sessionStorage.removeItem("shivtej_admin_msg91_req");toast("Admin mobile verified");openAdminPortal()},(error)=>stShowAuthMsg("stAdminAuthMsg",`Invalid OTP. ${esc(String(error?.message||error||"Please try again."))}`),x.reqId||undefined)}catch(e){stShowAuthMsg("stAdminAuthMsg",e.message||"OTP verification failed.")}
+ try{await stLoadMsg91();if(typeof window.verifyOtp!=="function")throw new Error("MSG91 Verify OTP method is not ready. Please try again.");window.verifyOtp(String(code),(data)=>{const token=data?.accessToken||data?.access_token||data?.token||null;localStorage.setItem(ST_ADMIN_AUTH_KEY,JSON.stringify({mobile:x.mobile,verified:true,loginAt:new Date().toISOString(),msg91AccessToken:token}));sessionStorage.removeItem("shivtej_admin_msg91_req");toast("Admin mobile verified");openAdminPortal()},(error)=>stShowAuthMsg("stAdminAuthMsg",`Invalid OTP. ${esc(String(error?.message||error||"Please try again."))}`),x.reqId||undefined)}catch(e){stShowAuthMsg("stAdminAuthMsg",e.message||"OTP verification failed.")}
 }
 function adminLogout(){stClearAdmin();toast("Admin logged out");openAdminPortal()}
 
