@@ -189,43 +189,158 @@ function save(){
    Uses only the public Publishable/Anon key in this browser file.
    Never place a Supabase secret/service_role key here.
 ------------------------------------------------------------- */
-async function cloudSaveProducts(){
-  if(!supabaseClient)return;
-  try{
-    const rows=products.map(p=>({id:Number(p.id),data:p,updated_at:new Date().toISOString()}));
-    if(rows.length){
-      const {error}=await supabaseClient.from("products").upsert(rows,{onConflict:"id"});
-      if(error) console.warn("Supabase products save:",error.message);
-    }
-  }catch(e){console.warn("Supabase products save failed",e)}
+/* V4.4 - central database sync (Owner App <-> Supabase <-> this website).
+   Products, colours, sizes and LIVE STOCK are read from Supabase with site_list_products().
+   Orders are placed with site_place_order(): stock is checked and deducted on the server, atomically,
+   so POS sales, website orders and the Owner App always share the same stock. No secret key is used here. */
+function sbHash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0)%2147483647||1}
+function rowToProduct(r,usedIds){
+  let id=sbHash(String(r.id));while(usedIds.has(id))id=(id%2147483646)+1;usedIds.add(id);
+  const cols=Array.isArray(r.colours)?r.colours:[];
+  const variants=cols.map(c=>{
+    const name=c&&typeof c==="object"?(c.name||c.colour||""):String(c||"");
+    const sizes=(c&&Array.isArray(c.sizes)?c.sizes:[]).map(s=>typeof s==="object"?{size:String(s.size),qty:Math.max(0,Number(s.qty)||0),barcode:s.barcode?String(s.barcode):""}:{size:String(s),qty:0,barcode:""});
+    const imgs=(c&&Array.isArray(c.images)?c.images:[]).concat(Array.isArray(r.images)?r.images:[]);
+    const media=imgs.filter(u=>typeof u==="string"&&u).map(u=>({type:"image",data:u}));
+    return {colour:name,sizeStock:sizes,sizes:sizes.map(s=>s.size),stock:sizes.reduce((n,s)=>n+s.qty,0),media};
+  }).filter(v=>v.colour);
+  return {id,sid:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:r.category||"",price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,rating:0,reviews:0,newItem:!!r.new_item,desc:r.description||"",variants};
 }
-async function cloudSaveOrders(){
-  if(!supabaseClient)return;
+/* Product photos live in the PRIVATE Backblaze bucket. The database keeps only their names
+   ("products/<id>/<file>.jpg"); the site asks b2-media-url for a one-hour signed link for each one. */
+const sitePhotoCache=new Map();
+async function sitePhotoUrl(name){
+  const hit=sitePhotoCache.get(name);if(hit&&hit.until>Date.now())return hit.url;
+  const pid=name.split("/")[1]||"";
   try{
-    const rows=orders.map(o=>({id:String(o.id),data:o,updated_at:new Date().toISOString()}));
-    if(rows.length){
-      const {error}=await supabaseClient.from("orders").upsert(rows,{onConflict:"id"});
-      if(error) console.warn("Supabase orders save:",error.message);
-    }
-  }catch(e){console.warn("Supabase orders save failed",e)}
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/b2-media-url?product_id=${encodeURIComponent(pid)}&file=${encodeURIComponent(name)}`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY}});
+    if(!r.ok)return null;
+    const j=await r.json();
+    sitePhotoCache.set(name,{url:j.url,until:Date.now()+50*60*1000});
+    return j.url;
+  }catch(e){return null}
+}
+async function fetchCloudProducts(){
+  if(!supabaseClient)return null;
+  const pr=await supabaseClient.rpc("site_list_products");
+  if(pr.error||!Array.isArray(pr.data))return null;
+  const used=new Set();
+  const list=pr.data.map(r=>rowToProduct(r,used)).filter(p=>p.variants.length);
+  // resolve private photo names to signed links before the page shows them
+  const media=[];list.forEach(p=>p.variants.forEach(v=>v.media.forEach(m=>media.push(m))));
+  await Promise.all(media.map(async m=>{if(m.data.startsWith("products/"))m.data=await sitePhotoUrl(m.data)}));
+  list.forEach(p=>p.variants.forEach(v=>{v.media=v.media.filter(m=>m.data)}));
+  return list;
+}
+/* Admin-only actions that change the central database (Billing / Add product) need the owner code.
+   It is asked once per browser session, kept only in sessionStorage and sent only to Supabase over HTTPS. */
+function getOwnerCode(){
+  let c="";try{c=sessionStorage.getItem("sw_owner_code")||""}catch(e){}
+  if(!c){c=(prompt("Owner code (the same code as in the Owner App)")||"").trim();if(c){try{sessionStorage.setItem("sw_owner_code",c)}catch(e){}}}
+  return c;
+}
+function clearOwnerCode(){try{sessionStorage.removeItem("sw_owner_code")}catch(e){}}
+function cloudProducts(){return !!supabaseClient&&products.length>0&&products.every(p=>p.sid)}
+function compressImage(file){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{const m=1280,k=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*k));c.height=Math.max(1,Math.round(img.height*k));
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error("image")),"image/jpeg",.8)};
+  img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("image"))};img.src=u})}
+/* Sends one compressed photo to the private B2 bucket through the owner-only b2-upload function.
+   Returns the object name that is saved in the product's images list. */
+async function uploadSiteImage(file,pid,code){
+  const blob=await compressImage(file);
+  const r=await fetch(`${SUPABASE_URL}/functions/v1/b2-upload`,{method:"POST",
+    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,"x-owner-code":code,"x-kind":"image","x-product-id":pid,"Content-Type":"image/jpeg"},body:blob});
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok||!j.file_name)throw new Error(j.error||"upload");
+  return j.file_name;
+}
+async function createCloudProduct(){
+  const name=$("pn").value.trim(),price=+$("pp").value;
+  if(!name||!(price>0)){toast("Product name and price are required");return}
+  const pid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():"w"+Date.now()+Math.random().toString(36).slice(2,8);
+  const colours=[...document.querySelectorAll(".variantRow")].map((r,vi)=>({
+    name:r.querySelector(".vc").value.trim(),images:[],
+    sizes:[...r.querySelectorAll(".sizeStockRow")].map((x,si)=>({size:x.querySelector(".vsize").value.trim(),qty:Math.max(0,Number(x.querySelector(".vqty").value)||0),
+      barcode:x.querySelector(".vbarcode").value.trim()||makeBarcode(pid+"|"+vi+"|"+si+"|"+x.querySelector(".vsize").value.trim())})).filter(x=>x.size)
+  })).filter(c=>c.name&&c.sizes.length);
+  if(!colours.length){toast("Add at least one colour and size");return}
+  const files=[...$("pf").files];
+  if(files.some(f=>f.type.startsWith("video")))toast("Videos are not supported in the shop database - photos only");
+  const code=getOwnerCode();if(!code)return;
+  toast("Saving product...");
+  let urls=[];
+  try{for(const f of files.filter(f=>f.type.startsWith("image")).slice(0,6))urls.push(await uploadSiteImage(f,pid,code))}
+  catch(e){
+    if(String(e.message).includes("INVALID_OWNER_CODE")){clearOwnerCode();toast("Wrong owner code");return}
+    toast("Photo upload failed. Check internet and try again.");return}
+  let res;
+  try{res=await supabaseClient.rpc("owner_upsert_product",{p_code:code,p:{id:pid,article:$("pa").value.trim()||"-",name,description:$("pd").value,brand:$("pb").value.trim()||"Shivtej",
+    category:$("pg").value,price,mrp:+$("pm").value||price,active:true,new_item:$("pnew").checked,images:urls,colours}})}catch(e){res={error:{message:"NETWORK"}}}
+  if(res.error){const m=String(res.error.message||"")+" "+String(res.error.code||"");
+    if(m.includes("INVALID_OWNER_CODE")||m.includes("28000")){clearOwnerCode();toast("Wrong owner code")}
+    else if(m.includes("BARCODE_DUPLICATE")){toast("This barcode already belongs to another product")}
+    else toast("Product could not be saved. Check internet and try again.");
+    return}
+  closeModal();toast("Product published - it is now visible in the shop and the Owner App");await loadCloudData();
+}
+async function cloudCompleteBill(){
+  const total=billingCart.reduce((n,x)=>n+x.price*x.qty,0);
+  const items=billingCart.map(x=>{const p=products.find(q=>q.id===x.productId);return {productId:p.sid,colour:x.colour,size:String(x.size),qty:x.qty,price:x.price,name:x.name,article:x.article,barcode:x.barcode}});
+  const code=getOwnerCode();if(!code)return;
+  /* the same bill id is reused if the request is repeated, so a retry can never deduct stock twice */
+  const key=JSON.stringify(items);let pend=null;try{pend=JSON.parse(localStorage.getItem("sw_bill_pending")||"null")}catch(e){}
+  if(!pend||pend.key!==key){pend={key,id:"WB"+Date.now()+Math.random().toString(36).slice(2,8),no:"B"+Date.now()};try{localStorage.setItem("sw_bill_pending",JSON.stringify(pend))}catch(e){}}
+  let res;
+  try{res=await supabaseClient.rpc("owner_create_bill",{p_code:code,p:{id:pend.id,bill_no:pend.no,total,payment_method:"Cash",items,created_at:new Date().toISOString()}})}catch(e){res={error:{message:"NETWORK"}}}
+  if(res.error){const m=String(res.error.message||"")+" "+String(res.error.code||"");
+    if(m.includes("INVALID_OWNER_CODE")||m.includes("28000")){clearOwnerCode();toast("Wrong owner code")}
+    else toast("Bill could not be saved. Check internet and try again - nothing was deducted twice.");
+    return}
+  try{localStorage.removeItem("sw_bill_pending")}catch(e){}
+  billingCart=[];saveBilling();await loadCloudData();
+  $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:20px"><div style="font-size:46px">✓</div><h2>Bill Completed</h2><p>Bill No: <b>${esc(pend.no)}</b></p><p>Total: <b>₹${total}</b></p><p class="meta">Stock was updated in the central shop database (website + Owner App).</p><button class="primary" onclick="closeModal()">Done</button></div>`;
+}
+async function cloudSaveProducts(){ /* products are managed in the Owner App; stock changes only on the server */ }
+async function cloudSaveOrders(){ /* orders are saved on the server by site_place_order() */ }
+async function refreshOrderStatuses(){
+  if(!supabaseClient||!orders.length)return false;
+  try{
+    const ids=orders.map(o=>String(o.id)).filter(i=>i.length>3).slice(0,50);
+    const r=await supabaseClient.rpc("site_order_status",{p_ids:ids});
+    if(r.error||!Array.isArray(r.data))return false;
+    let ch=false;
+    r.data.forEach(x=>{const o=orders.find(o=>String(o.id)===String(x.id));if(!o)return;
+      const s=(x.order_status==="New"?"Order received":x.order_status)+(x.tracking_no?" · "+(x.courier||"Courier")+" "+x.tracking_no:"");
+      if(o.status!==s){o.status=s;ch=true}});
+    if(ch)localStorage.setItem("sw2_orders",JSON.stringify(orders));
+    return ch;
+  }catch(e){return false}
 }
 async function loadCloudData(){
   if(!supabaseClient)return;
   try{
-    const pr=await supabaseClient.from("products").select("id,data,updated_at").order("updated_at",{ascending:false});
-    if(!pr.error && Array.isArray(pr.data) && pr.data.length){
-      products=pr.data.map(r=>r.data).filter(Boolean);
+    const list=await fetchCloudProducts();
+    if(list){
+      products=list;
       ensureBarcodes();
       localStorage.setItem("sw2_products",JSON.stringify(products));
       setupFilters();renderHero();renderProducts();
     }
-    const or=await supabaseClient.from("orders").select("id,data,updated_at").order("updated_at",{ascending:false});
-    if(!or.error && Array.isArray(or.data) && or.data.length){
-      orders=or.data.map(r=>r.data).filter(Boolean);
-      localStorage.setItem("sw2_orders",JSON.stringify(orders));
-    }
+    await refreshOrderStatuses();
   }catch(e){console.warn("Supabase cloud load skipped",e)}
 }
+/* keep stock fresh while the page is open (every 30 s) without resetting the customer's filters */
+setInterval(async()=>{
+  if(document.hidden||!supabaseClient)return;
+  try{
+    const list=await fetchCloudProducts();
+    if(!list)return;
+    const key=a=>JSON.stringify(a.map(p=>[p.sid||p.id,p.price,p.mrp,p.name,(p.variants||[]).map(v=>[v.colour,v.sizeStock])]));
+    if(key(list)!==key(products)){products=list;ensureBarcodes();localStorage.setItem("sw2_products",JSON.stringify(products));renderProducts();renderHero()}
+    if(await refreshOrderStatuses()){}
+  }catch(e){}
+},30000);
 
 function counts(){$("wishCount").textContent=wishlist.length;$("cartCount").textContent=cart.reduce((a,x)=>a+x.q,0)}
 function allVariants(p){return p.variants||[]}
@@ -293,13 +408,14 @@ function renderProducts(){
  $("products").innerHTML=arr.map(p=>{
    const v=selectedVariant(p),ss=sizeStock(v),total=availableCount(v),out=total<=0;
    const stockText=ss.length?ss.map(x=>x.qty===null?`<span class="stockPill">${esc(x.size)} · Qty not set</span>`:`<span class="stockPill">${esc(x.size)} · ${x.qty} pcs</span>`).join(""):"No size stock set";
-   return `<article class="card"><div class="photo">${mediaHtml(v)}${p.newItem?'<span class="new">NEW</span>':''}<button class="heart" onclick="toggleWish(${p.id})">${wishlist.includes(p.id)?"♥":"♡"}</button></div><div class="body"><div class="meta">${esc(p.brand)} · ${esc(p.article)}</div><h3>${esc(p.name)}</h3><div class="meta">${esc(v.colour)} · ${ss.length||0} sizes</div><div style="margin-top:5px">${stockText}</div><div class="rating"><b>★ ${Number(p.rating||0).toFixed(1)}</b> (${p.reviews||0})</div><div class="price">₹${p.price}<del>₹${p.mrp}</del></div><div class="${out?'meta':'stock'}">${out?"Out of stock":"Total: "+total+" pcs available"}</div><div class="cardBtns"><button class="view" onclick="openProduct(${p.id})">View</button><button class="add" onclick="quickCart(${p.id})" ${out?"disabled":""}>Cart</button></div></div></article>`
+   return `<article class="card"><div class="photo">${mediaHtml(v)}${p.newItem?'<span class="new">NEW</span>':''}<button class="heart" onclick="toggleWish(${p.id})">${wishlist.includes(p.id)?"♥":"♡"}</button></div><div class="body"><div class="meta">${esc(p.brand)} · ${esc(p.article)}</div><h3>${esc(p.name)}</h3><div class="meta">${esc(v.colour)} · ${ss.length||0} sizes</div><div style="margin-top:5px">${stockText}</div>${p.rating?`<div class="rating"><b>★ ${Number(p.rating||0).toFixed(1)}</b> (${p.reviews||0})</div>`:""}<div class="price">₹${p.price}<del>₹${p.mrp}</del></div><div class="${out?'meta':'stock'}">${out?"Out of stock":"Total: "+total+" pcs available"}</div><div class="cardBtns"><button class="view" onclick="openProduct(${p.id})">View</button><button class="add" onclick="quickCart(${p.id})" ${out?"disabled":""}>Cart</button></div></div></article>`
  }).join("");
 }
 function renderHero(){
+ if(!products.length){$("heroTrack").innerHTML="";$("heroDots").innerHTML="";return}
  const arr=products.filter(p=>p.newItem).slice(0,6);const slides=arr.length?arr:[products[0]];
  slide=Math.min(slide,slides.length-1);
- $("heroTrack").innerHTML=slides.map(p=>{let v=selectedVariant(p);return `<article class="slide"><div class="slideText"><div class="eyebrow">NEW ARRIVAL</div><h1>${esc(p.name)}</h1><p>${esc(p.desc||"Latest footwear arrival at Shivtej Footwear.")}</p><p><b>₹${p.price}</b> &nbsp; <s style="opacity:.6">₹${p.mrp}</s> &nbsp; ★ ${p.rating.toFixed(1)}</p><div class="btns"><button class="primary" onclick="openProduct(${p.id})">Shop Now →</button><button class="light" onclick="quickCart(${p.id})">Add to Cart</button></div></div><div class="slideMedia">${mediaHtml(v,true)}</div></article>`}).join("");
+ $("heroTrack").innerHTML=slides.map(p=>{let v=selectedVariant(p);return `<article class="slide"><div class="slideText"><div class="eyebrow">NEW ARRIVAL</div><h1>${esc(p.name)}</h1><p>${esc(p.desc||"Latest footwear arrival at Shivtej Footwear.")}</p><p><b>₹${p.price}</b> &nbsp; <s style="opacity:.6">₹${p.mrp}</s> ${p.rating?`&nbsp; ★ ${p.rating.toFixed(1)}`:""}</p><div class="btns"><button class="primary" onclick="openProduct(${p.id})">Shop Now →</button><button class="light" onclick="quickCart(${p.id})">Add to Cart</button></div></div><div class="slideMedia">${mediaHtml(v,true)}</div></article>`}).join("");
  $("heroDots").innerHTML=slides.map((_,i)=>`<button class="dot ${i===slide?'active':''}" onclick="goSlide(${i})"></button>`).join("");
  $("heroTrack").style.transform=`translateX(-${slide*100}%)`;
 }
@@ -346,8 +462,30 @@ async function checkout(){
   let total=cart.reduce((s,x)=>{let p=products.find(p=>p.id===x.id);return s+(p?p.price*x.q:0)},0);
   $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><h2>Secure Checkout</h2><div class="form"><input id="custName" placeholder="Customer name"><input id="custPhone" inputmode="numeric" placeholder="Mobile number" value="${esc(stCustomerMobile()||'')}"><textarea id="custAddress" placeholder="Delivery address"></textarea><select id="pay"><option>UPI / Payment Gateway</option><option>Cash on Delivery</option></select><button class="primary" style="padding:14px" onclick="placeOrder(${total})">Place Order • ₹${total}</button></div><p class="meta" style="margin-top:12px">Mobile OTP verification is required before checkout. Payment gateway keys must stay on a secure backend.</p>`;
 }
-function placeOrder(total){
+async function placeOrder(total){
   const name=$("custName").value.trim(),phone=$("custPhone").value.trim(),addr=$("custAddress").value.trim();if(!name||!phone||!addr){toast("Please fill customer details");return}
+  const cloudMode=!!supabaseClient&&cart.length>0&&cart.every(i=>{const p=products.find(x=>x.id===i.id);return p&&p.sid});
+  if(cloudMode){
+    const payment=($("pay")&&$("pay").value)||"";
+    const btn=document.querySelector("#sheet button.primary");if(btn){btn.disabled=true;btn.textContent="Placing order..."}
+    const items=cart.map(i=>{const p=products.find(x=>x.id===i.id);return {product_id:p.sid,colour:i.colour,size:String(i.size),qty:Number(i.q)}});
+    let res;
+    try{res=await supabaseClient.rpc("site_place_order",{p:{name,mobile:phone,address:addr,payment,items}})}catch(e){res={error:{message:"NETWORK"}}}
+    if(res.error||!res.data||!res.data.ok){
+      const msg=String(res.error&&res.error.message||"");
+      if(msg.startsWith("STOCK")){toast("Stock बदल गया है। Cart में item फिर से चुनो");await loadCloudData()}
+      else if(msg.includes("RATE_LIMIT")){toast("Too many orders from this number. Please try again later.")}
+      else if(msg.includes("INVALID")){toast("Please check your details and cart")}
+      else{toast("Order could not be placed. Check your internet and try again.")}
+      if(btn){btn.disabled=false;btn.textContent="Place Order • ₹"+total}
+      return;
+    }
+    const oid=res.data.id,paid=Number(res.data.total)||total;
+    orders.unshift({id:oid,date:new Date().toLocaleString(),items:[...cart],total:paid,name,phone,addr,status:"Order received"});
+    cart=[];save();await loadCloudData();
+    $("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:25px"><div style="font-size:48px">✓</div><h2>Order Received</h2><p>Your order number is <b>${oid}</b>.</p><p class="meta">Your size and colour are reserved and the shop stock has been updated.</p><button class="primary" onclick="closeModal()">Continue Shopping</button></div>`;
+    return;
+  }
   for(const item of cart){const p=products.find(x=>x.id===item.id),v=p&&allVariants(p).find(x=>x.colour===item.colour),row=v&&sizeStock(v).find(x=>String(x.size)===String(item.size));if(!p||!v||!row||row.qty===null||Number(row.qty)<Number(item.q)){toast("Stock बदल गया है। Cart में item फिर से चुनो");return}}
   cart.forEach(item=>{const p=products.find(x=>x.id===item.id),v=allVariants(p).find(x=>x.colour===item.colour),row=v&&v.sizeStock.find(x=>String(x.size)===String(item.size));if(row){row.qty=Math.max(0,Number(row.qty)-Number(item.q));syncVariant(v)}});
   orders.unshift({id:"SW"+Date.now(),date:new Date().toLocaleString(),items:[...cart],total,name,phone,addr,status:"Order received"});cart=[];save();renderProducts();renderHero();$("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:25px"><div style="font-size:48px">✓</div><h2>Order Received</h2><p>Your demo order number is <b>${orders[0].id}</b>.</p><p class="meta">Stock was updated for the exact Colour + Size. The latest stock is saved locally and synced to Supabase when the database policy allows it.</p><button class="primary" onclick="closeModal()">Continue Shopping</button></div>`
@@ -394,7 +532,7 @@ function printBarcodeLabel(btn){
  const w=window.open("","_blank","width=480,height=620");if(!w){toast("Popup allow करो");return}w.document.write(`<html><head><title>Barcode Label</title><style>body{font-family:Arial;text-align:center;padding:18px}.label{border:1px solid #111;padding:14px;width:360px;margin:auto}.name{font-weight:700;font-size:18px}.meta{margin:6px 0;color:#333}svg{width:100%;height:100px}</style></head><body><div class="label"><div class="name">${esc(name)}</div><div class="meta">${esc(colour)} · Size ${esc(size)} · Qty ${esc(qty)}</div><svg id="bc"></svg><div>${esc(b)}</div></div><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script><script>JsBarcode('#bc','${b}',{format:'CODE128',displayValue:false,height:75,margin:8});setTimeout(()=>window.print(),250)<\/script></body></html>`);w.document.close();
 }
 async function createProduct(e){
- e.preventDefault();let files=[...$("pf").files],media=[];
+ e.preventDefault();if(cloudProducts())return createCloudProduct();let files=[...$("pf").files],media=[];
  for(const f of files){let data=await fileData(f);media.push({type:f.type.startsWith("video")?"video":"image",data})}
  const productId=Date.now();
  let variants=[...document.querySelectorAll(".variantRow")].map((r,vi)=>{
@@ -477,8 +615,12 @@ function renderBilling(){
  const total=billingCart.reduce((n,x)=>n+x.price*x.qty,0);box.innerHTML=billingCart.map((x,i)=>`<div class="order"><div><b>${esc(x.name)}</b><div class="meta">${esc(x.article)} · ${esc(x.colour)} · Size ${esc(x.size)} · ₹${x.price}</div><div class="meta">Barcode: ${esc(x.barcode)} · Qty: ${x.qty}</div></div><button class="outline" onclick="removeBillingItem(${i})">×</button></div>`).join('')+`<h3 style="text-align:right">Total: ₹${total}</h3>`;
 }
 function removeBillingItem(i){billingCart.splice(i,1);saveBilling();renderBilling()}
-function completeBill(){
+async function completeBill(){
  if(!billingCart.length){toast("पहले item scan करो");return}
+ if(cloudProducts()&&billingCart.every(x=>products.find(q=>q.id===x.productId))){
+   for(const item of billingCart){const hit=findByBarcode(item.barcode);if(!hit){toast("Barcode data बदल गया");return}if(hit.x.qty!==null && item.qty>Number(hit.x.qty)){toast(`${item.name} Size ${item.size} का stock कम है`);return}}
+   return cloudCompleteBill();
+ }
  for(const item of billingCart){const hit=findByBarcode(item.barcode);if(!hit){toast("Barcode data बदल गया");return}if(hit.x.qty!==null && item.qty>Number(hit.x.qty)){toast(`${item.name} Size ${item.size} का stock कम है`);return}}
  billingCart.forEach(item=>{const hit=findByBarcode(item.barcode);if(hit.x.qty!==null)hit.x.qty=Math.max(0,Number(hit.x.qty)-item.qty);syncVariant(hit.v)});
  save();const total=billingCart.reduce((n,x)=>n+x.price*x.qty,0);const billNo="B"+Date.now();billingCart=[];saveBilling();renderProducts();renderHero();$("sheet").innerHTML=`<button class="close" onclick="closeModal()">×</button><div style="text-align:center;padding:20px"><div style="font-size:46px">✓</div><h2>Bill Completed</h2><p>Bill No: <b>${billNo}</b></p><p>Total: <b>₹${total}</b></p><p class="meta">Stock local website और Supabase database दोनों में save करने के लिए sync किया गया है.</p><button class="primary" onclick="closeModal()">Done</button></div>`;
@@ -651,6 +793,7 @@ async function stVerifyAdminOtp(){
 }
 function adminLogout(){stClearAdmin();toast("Admin logged out");openAdminPortal()}
 
+const _openOrdersOrig=openOrders;openOrders=function(){_openOrdersOrig();refreshOrderStatuses().then(ch=>{if(ch&&$("modal").classList.contains("show"))_openOrdersOrig()})};
 setupFilters();renderHero();renderProducts();counts();loadCloudData();
 </script>
 </body>
