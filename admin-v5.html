@@ -116,6 +116,12 @@ textarea{min-height:70px;resize:vertical}
         <div class="hint">Shown to the customer as a separate line. The total is updated when you save.</div>
 
         <div class="row" style="margin-top:14px">
+          <button class="btn dark" id="ordShip">Create shipment (Shiprocket)</button>
+          <span class="msg" id="ordShipMsg"></span>
+        </div>
+        <div class="hint">Use this when the order is packed. It books the courier, the AWB and the pickup. The customer then sees the status and tracking number.</div>
+
+        <div class="row" style="margin-top:14px">
           <button class="btn red" id="ordSave">Save order</button>
           <button class="btn line" id="ordClose">Close</button>
           <span class="msg" id="ordSaveMsg"></span>
@@ -334,7 +340,9 @@ function openOrder(id){
   $("ordDetail").classList.remove("hidden");
   $("ordTitle").textContent=o.id;
   $("ordBadge").textContent=o.order_status||"New";
-  $("ordInfo").innerHTML=`${esc(c.name||"")}<br>${esc(c.mobile||"")}<br>${esc(c.address||"")}<br>Payment: ${esc(o.payment_status||"")}<br>Placed: ${esc(fmtDate(o.created_at))}`;
+  $("ordInfo").innerHTML=`${esc(c.name||"")}<br>${esc(c.mobile||"")}<br>${esc(c.address||"")}${c.city?`, ${esc(c.city)}`:""}${c.state?`, ${esc(c.state)}`:""}${c.pincode?` - ${esc(c.pincode)}`:""}<br>Payment: ${esc(o.payment_status||"")}<br>Placed: ${esc(fmtDate(o.created_at))}${o.tracking_no?`<br>AWB: <b>${esc(o.tracking_no)}</b>${o.courier?` · ${esc(o.courier)}`:""}`:""}`;
+  $("ordShip").disabled=!["Confirmed","Packed"].includes(o.order_status)||!!o.tracking_no;
+  say("ordShipMsg","");
   $("ordItems").innerHTML=(Array.isArray(o.items)?o.items:[]).map(it=>`<li>${esc(it.name||it.article||"Item")} · ${esc(it.colour||"")} · ${esc(it.size||"")} × ${esc(it.qty||it.q||1)}</li>`).join("");
   $("ordStatus").value=o.order_status||"New";
   $("ordCourier").value=o.courier||"";
@@ -343,6 +351,29 @@ function openOrder(id){
   paintOrderTotal();
   say("ordSaveMsg","");
   $("ordDetail").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+const SHIP_ERRORS={
+  NOT_LOGGED_IN:"Please log in again.",
+  NOT_ADMIN:"This account is not an admin.",
+  NOT_READY:"Set the order to Confirmed or Packed first.",
+  PINCODE_MISSING:"This order has no pincode, so Shiprocket cannot take it.",
+  ADDRESS_INCOMPLETE:"This order has no city or state.",
+  PAYMENT_NOT_CONFIRMED:"Payment is not confirmed for this order yet.",
+  SHIPROCKET_FAILED:"Shiprocket did not accept it. Try again in a minute."
+};
+async function createShipment(){
+  if(!openOrderId)return;
+  $("ordShip").disabled=true;say("ordShipMsg","Creating shipment...");
+  try{
+    const r=await fetch(SB_URL+"/functions/v1/shiprocket-ship",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify({order_id:openOrderId})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){say("ordShipMsg",SHIP_ERRORS[j.error]||"Shipment could not be created ("+(j.error||r.status)+").","err");$("ordShip").disabled=false;return}
+    await loadOrders();
+    say("ordShipMsg",(j.already?"Already shipped. ":"Shipment created. ")+"AWB: "+j.awb+(j.courier?" · "+j.courier:"")+(j.pickup===false?" · Pickup not booked yet, check Shiprocket.":""),"ok");
+  }catch(e){
+    say("ordShipMsg","Network error. Check internet and try again.","err");$("ordShip").disabled=false;
+  }
 }
 
 async function saveOrder(){
@@ -415,6 +446,7 @@ function boot(){
   $("ordSave").onclick=saveOrder;
   $("ordClose").onclick=()=>{openOrderId=null;$("ordDetail").classList.add("hidden")};
   $("ordShipping").oninput=paintOrderTotal;
+  $("ordShip").onclick=createShipment;
 
   sb.auth.onAuthStateChange(()=>check());
   check().catch(e=>{show("loginView");say("loginMsg","Session check failed: "+(e&&e.message||e),"err")});
