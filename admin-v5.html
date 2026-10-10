@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Shivtej Footwear | Admin</title>
+<style>
+:root{--red:#E30613;--ink:#111;--mute:#6b7280;--line:#e5e7eb;--soft:#f6f6f7}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--soft);min-height:100vh}
+.wrap{max-width:720px;margin:0 auto;padding:28px 16px}
+.logo{font-weight:900;color:var(--red);letter-spacing:.4px;font-size:18px;margin-bottom:6px}
+h1{font-size:22px;font-weight:600;margin:8px 0 6px}
+.sub{color:var(--mute);font-size:14px;margin:0 0 22px;line-height:1.6;font-weight:300}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px}
+.btn{display:inline-block;border:0;border-radius:999px;padding:13px 22px;font-weight:600;font-size:14px;cursor:pointer;background:var(--ink);color:#fff;text-decoration:none}
+.btn.red{background:var(--red)}
+.btn.line{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{font-size:14px;margin-top:12px;color:var(--mute);line-height:1.6}
+.msg.err{color:#b42318}
+.hidden{display:none}
+ol,ul{padding-left:20px;margin:8px 0;font-size:14px;line-height:1.8;color:#333}
+code{background:var(--soft);padding:2px 6px;border-radius:6px;font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.tag{display:inline-block;background:var(--soft);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+h2{font-size:16px;font-weight:600;margin:0 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">SHIVTEJ FOOTWEAR · ADMIN</div>
+
+  <!-- login -->
+  <div id="loginView" class="card hidden">
+    <h1>Admin login</h1>
+    <p class="sub">Sirf admin Gmail se login ho sakta hai. Login ke baad ye page admin panel dikhayega.</p>
+    <button class="btn red" id="gBtn">Google se login karein</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- denied -->
+  <div id="deniedView" class="card hidden">
+    <h2>Aapko admin access nahi hai</h2>
+    <p class="sub">Ye Gmail admin list mein nahi hai. Admin ko Supabase mein add karna hoga (neeche steps dekhein).</p>
+    <button class="btn line" id="outBtn">Dusre account se login karein</button>
+  </div>
+
+  <!-- dashboard -->
+  <div id="adminView" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h2>Swagat hai</h2><div class="sub" style="margin:0" id="who"></div></div>
+        <button class="btn line" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Kaam kahan se karein</h2>
+      <ul>
+        <li><b>Products, stock, price, photo:</b> Owner App (Android) se.</li>
+        <li><b>Shop page ka design aur text:</b> GitHub par <code>shop-v5.html</code> file kholkar pencil (Edit) se.</li>
+        <li><b>Orders aur data:</b> Supabase dashboard ki Table Editor se.</li>
+        <li><b>OTP settings:</b> MSG91 dashboard se.</li>
+      </ul>
+      <div class="row" style="margin-top:12px">
+        <a class="btn dark" style="background:var(--ink)" href="shop-v5.html" target="_blank">Shop page dekhein</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Pehli baar setup (ek hi baar)</h2>
+      <ol>
+        <li>Supabase → SQL Editor mein ye chalayein (ye sirf admin row jodta hai):<br>
+          <code>insert into public.admin_users (id) select id from auth.users where email = 'shivtejfootwear@gmail.com' on conflict (id) do nothing;</code></li>
+        <li>Iske baad is page par reload karein. Admin panel khul jayega.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="msg hidden" id="setupMsg"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const SB_URL="https://rvufigsdclnzelmepigb.supabase.co";
+const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
+const $=id=>document.getElementById(id);
+const show=v=>["loginView","deniedView","adminView"].forEach(x=>$(x).classList.toggle("hidden",x!==v));
+
+function boot(){
+  if(!window.supabase){
+    show("loginView");
+    $("loginMsg").textContent="Login library load nahi hui. Internet check karke page reload karein.";
+    $("loginMsg").classList.add("err");
+    $("gBtn").disabled=true;
+    return;
+  }
+  const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,detectSessionInUrl:true}});
+
+  async function check(){
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session){show("loginView");return}
+    const {data,error}=await sb.from("admin_users").select("id,role,active").eq("id",session.user.id).maybeSingle();
+    if(error){show("deniedView");$("setupMsg").classList.remove("hidden");$("setupMsg").textContent="Admin check nahi ho paya: "+error.message;return}
+    if(!data||data.active===false){show("deniedView");return}
+    $("who").textContent=(session.user.email||"")+" · "+(data.role||"admin");
+    show("adminView");
+  }
+
+  $("gBtn").onclick=async()=>{
+    $("loginMsg").textContent="Google par bhej rahe hain...";
+    const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});
+    if(error){$("loginMsg").textContent="Login nahi ho paya: "+error.message;$("loginMsg").classList.add("err")}
+  };
+  const out=async()=>{await sb.auth.signOut();show("loginView")};
+  $("logoutBtn").onclick=out;
+  $("outBtn").onclick=out;
+  sb.auth.onAuthStateChange(()=>check());
+  check();
+}
+boot();
+</script>
+</body>
+</html>
