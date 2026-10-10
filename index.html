@@ -192,6 +192,13 @@ footer h5{margin:0 0 10px;color:#fff;text-transform:uppercase;font-size:13px;let
 footer a,footer button{display:block;color:#cfcfcf;background:none;border:0;padding:4px 0;font-size:14px;text-align:left}
 footer a:hover,footer button:hover{color:#fff}
 footer p{font-size:13px;line-height:1.6;margin:0}
+.sizeBar{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px;border-top:1px solid var(--line);padding-top:10px}
+.sizeBar::-webkit-scrollbar{display:none}
+.sizeBar>b{flex:0 0 auto;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--mute);margin-right:4px}
+.sz2{flex:0 0 auto;min-width:44px;height:34px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-weight:700;font-size:13px;color:var(--ink);transition:all .2s}
+.sz2:hover{border-color:var(--ink)}
+.sz2.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.sizeNote{font-size:13px;color:var(--mute)}
 @media (max-width:820px){
   .nav{display:none}
   .shop{grid-template-columns:1fr}
@@ -285,6 +292,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
     <div class="icons"><button class="ico" title="Login" id="loginBtn">👤</button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
   </div>
+  <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
 
 <section class="hero">
@@ -492,12 +500,18 @@ function cardHtml(p,i){
       </div>
     </div></article>`;
 }
+function renderSizeBar(){
+  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:p.category===S.cat);
+  const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
+  $("sizeBar").innerHTML='<b>Size</b>'+(sizes.length?sizes.map(z=>`<button class="sz2 ${S.size===z?"on":""}" data-size="${esc(z)}">${esc(z)}</button>`).join(""):'<span class="sizeNote">Is category mein abhi size nahi hai</span>');
+}
 function render(){
+  renderSizeBar();
   const list=products.filter(match);
   if(S.sort==="low")list.sort((a,b)=>a.price-b.price);
   else if(S.sort==="high")list.sort((a,b)=>b.price-a.price);
   else list.sort((a,b)=>Number(b.newItem)-Number(a.newItem));
-  $("title").textContent=S.cat==="All"?"Shop All":(S.cat==="NEW"?"New Items":S.cat);
+  $("title").textContent=(S.cat==="All"?"Shop All":(S.cat==="NEW"?"New Items":S.cat))+(S.size?" · Size "+S.size:"");
   $("count").textContent=list.length+" products";
   $("grid").innerHTML=list.length?list.map(cardHtml).join(""):'<div class="empty">Is filter mein koi product nahi hai.</div>';
   hydrate();
@@ -630,12 +644,14 @@ document.addEventListener("click",e=>{
     if(v==="NEW"){S.cat="NEW";S.newOnly=false}
     else if(v==="All"){S.cat="All";S.newOnly=false}
     else {S.cat=v;S.newOnly=false}
-    buildFilters();render();document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"});
+    S.size="";buildFilters();render();document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"});
     window.scrollTo({top:document.querySelector(".shopHead").offsetTop-80,behavior:"smooth"});
     return;
   }
+  const sz=e.target.closest("[data-size]");
+  if(sz){S.size=S.size===sz.dataset.size?"":sz.dataset.size;buildFilters();render();document.querySelector(".shopHead").scrollIntoView({behavior:"smooth",block:"start"});return}
   const cat=e.target.closest("[data-cat]");
-  if(cat){S.cat=cat.dataset.cat==="All"?"All":cat.dataset.cat;buildFilters();render();return}
+  if(cat){S.cat=cat.dataset.cat==="All"?"All":cat.dataset.cat;S.size="";buildFilters();render();return}
   const pk=e.target.closest("[data-pick]");
   if(pk){pickCat=pk.dataset.pick;renderRails();return}
   const view=e.target.closest("[data-view]");
