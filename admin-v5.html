@@ -275,7 +275,14 @@ function boot(){
   };
 
   sb.auth.onAuthStateChange(()=>check());
-  check();
+  check().catch(e=>{show("loginView");say("loginMsg","Session check nahi hua: "+(e&&e.message||e),"err")});
+  // Safety: agar 4 second mein kuch nahi dikha, to login button dikhayein
+  setTimeout(()=>{
+    if(["loginView","deniedView","adminView"].every(x=>$(x).classList.contains("hidden"))){
+      show("loginView");
+      say("loginMsg","Session check mein der hui. Login karke dekhein, ya page reload karein.","err");
+    }
+  },4000);
 }
 boot();
 </script>
