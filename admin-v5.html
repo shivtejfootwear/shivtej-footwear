@@ -99,8 +99,18 @@ textarea{min-height:70px;resize:vertical}
 
     <!-- 3 animation -->
     <div class="card">
-      <h2><span class="sec-no">3</span>Jootey/chappal ka animation</h2>
-      <label class="check"><input type="checkbox" id="heroAnim"> Upar animation dikhayein (chappal ki line khud banti hai)</label>
+      <h2><span class="sec-no">3</span>Upar ki chappal wali photo (hilti hui)</h2>
+      <label class="check"><input type="checkbox" id="heroAnim"> Upar hilti hui photo dikhayein</label>
+      <label class="f">Photo badalni ho to yahan chunein</label>
+      <div class="row">
+        <input type="file" id="heroArtFile" accept="image/*">
+        <button class="btn line" id="heroArtReset">Purani photo wapas</button>
+      </div>
+      <div class="preview" id="heroArtPrev">Koi photo nahi</div>
+      <div class="msg" id="heroArtMsg"></div>
+      <label class="f" for="heroArticle">Photo par click karne par is article code ka product khule</label>
+      <input type="text" id="heroArticle" placeholder="6102">
+      <div class="hint">Article code bilkul wahi likhein jo product mein hai (jaise 6102). Khali chhodne par click kaam nahi karega.</div>
     </div>
 
     <!-- 4 band -->
@@ -166,6 +176,8 @@ function fillForm(){
   $("heroTitle").value=cfg.heroTitle??"Naya stock.|Naya style.";
   $("heroText").value=cfg.heroText??"";
   $("heroAnim").checked=cfg.heroAnim!==false;
+  $("heroArticle").value=cfg.heroArticle??"6102";
+  paintPreview("heroArtPrev",cfg.heroArtImage||"hero-sandal.jpg");
   $("bandTitle").value=cfg.bandTitle??"";
   $("bandText").value=cfg.bandText??"";
   $("instagram").value=cfg.instagram??"";
@@ -197,6 +209,8 @@ function collect(){
     heroTitle:$("heroTitle").value.trim(),
     heroText:$("heroText").value.trim(),
     heroAnim:$("heroAnim").checked,
+    heroArtImage:cfg.heroArtImage||"",
+    heroArticle:$("heroArticle").value.trim(),
     heroImage:cfg.heroImage||"",
     bandTitle:$("bandTitle").value.trim(),
     bandText:$("bandText").value.trim(),
@@ -246,6 +260,8 @@ function boot(){
 
   $("heroFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"hero","heroMsg");if(u){cfg.heroImage=u;paintPreview("heroPrev",u)}};
   $("bandFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"band","bandMsg");if(u){cfg.bandImage=u;paintPreview("bandPrev",u)}};
+  $("heroArtFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"heroart","heroArtMsg");if(u){cfg.heroArtImage=u;paintPreview("heroArtPrev",u)}};
+  $("heroArtReset").onclick=()=>{cfg.heroArtImage="";paintPreview("heroArtPrev","");say("heroArtMsg","Default photo lagegi. Save dabayein.","ok")};
   $("heroRemove").onclick=()=>{cfg.heroImage="";paintPreview("heroPrev","");say("heroMsg","Photo hata di. Save dabayein.","ok")};
   $("bandRemove").onclick=()=>{cfg.bandImage="";paintPreview("bandPrev","");say("bandMsg","Photo hata di. Save dabayein.","ok")};
 
