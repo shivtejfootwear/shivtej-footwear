@@ -38,7 +38,7 @@ button{cursor:pointer}
 .cartBtn:hover{transform:translateY(-1px)}
 .cartBtn b{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--red);font-size:12px}
 /* hero */
-.hero{position:relative;overflow:hidden;color:#fff;background:linear-gradient(110deg,#0b0b0b 0%,#1f1f1f 55%,#7d0a10 130%);padding:clamp(56px,10vw,112px) 0 clamp(48px,8vw,96px)}
+.hero{position:relative;overflow:hidden;color:#fff;background:radial-gradient(55% 75% at 80% 45%,rgba(227,6,19,.95) 0%,rgba(190,8,20,.7) 38%,rgba(20,4,6,0) 72%),linear-gradient(110deg,#0b0b0b 0%,#1f1f1f 55%,#5a0a0f 130%);padding:clamp(56px,10vw,112px) 0 clamp(48px,8vw,96px)}
 .hero:after{content:"";position:absolute;right:-80px;top:-80px;width:360px;height:360px;border-radius:50%;background:rgba(255,255,255,.06);animation:float 8s ease-in-out infinite}
 .hero h1{position:relative;margin:0 0 14px;font-size:clamp(26px,4.2vw,52px);line-height:1.08;font-weight:500;letter-spacing:-.03em;animation:rise .9s ease both}
 .hero p{position:relative;margin:0 0 22px;font-size:clamp(13px,1.5vw,16px);font-weight:300;line-height:1.6;opacity:.7;max-width:460px;animation:rise .9s .15s ease both}
@@ -224,6 +224,8 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .pHero .ph{font-size:56px;opacity:.35;position:relative;z-index:1}
 .pHero img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;padding:8%;animation:heroIn 1s cubic-bezier(.2,.7,.2,1) backwards,bob 6s ease-in-out 1s infinite}
 .pHero:after{content:"";position:absolute;left:24%;right:24%;bottom:12%;height:9%;border-radius:50%;background:rgba(0,0,0,.14);filter:blur(10px);animation:shadowPulse 6s ease-in-out 1s infinite}
+.hero .heroCta{background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.hero .heroCta:hover{background:#000}
 @keyframes heroIn{from{opacity:0;transform:scale(1.12) translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes shadowPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.8);opacity:.6}}
@@ -243,8 +245,9 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .heroIn{position:relative;z-index:1}
 .heroArt{position:absolute;right:6%;top:50%;transform:translateY(-50%);z-index:2}
 .heroArt.clickable{cursor:pointer}
-.heroArt .artImg{display:block;height:min(400px,60vh);width:auto;max-width:min(36vw,360px);border-radius:26px;box-shadow:0 34px 70px rgba(0,0,0,.5);animation:bob 5.5s ease-in-out 1s infinite,heroIn 1s cubic-bezier(.2,.7,.2,1) backwards;transition:transform .4s}
-.heroArt.clickable:hover .artImg{transform:scale(1.03)}
+.heroArt .artImg{display:block;height:min(380px,54vh);width:auto;max-width:min(38vw,380px);border-radius:0;-webkit-mask-image:radial-gradient(closest-side,#000 62%,transparent 100%);mask-image:radial-gradient(closest-side,#000 62%,transparent 100%);filter:drop-shadow(0 30px 40px rgba(0,0,0,.45));backface-visibility:visible;animation:heroIn 1s cubic-bezier(.2,.7,.2,1) backwards,turn3d 10s ease-in-out 1s infinite}
+@keyframes turn3d{0%,100%{transform:perspective(900px) rotateY(-28deg) rotateX(8deg)}25%{transform:perspective(900px) rotateY(0deg) rotateX(-6deg)}50%{transform:perspective(900px) rotateY(28deg) rotateX(8deg)}75%{transform:perspective(900px) rotateY(0deg) rotateX(-6deg)}}
+
 .heroArt.off{display:none}
 .heroArt .sandal{width:100%;height:auto;overflow:visible;animation:floatY 5.5s ease-in-out 2.6s infinite}
 .heroArt path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.6s cubic-bezier(.6,.1,.2,1) forwards}
@@ -285,7 +288,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
     <div class="heroArt" id="heroArt"><img id="heroArtImg" src="hero-sandal.jpg" alt="Chappal" class="artImg"></div>
     <h1 id="heroTitle"><span class="ln">Naya stock.</span><span class="ln">Naya style.</span></h1>
     <p id="heroText">Har size, har colour, live stock ke saath. Chappal se lekar casual shoes tak, sab ek jagah.</p>
-    <button class="btn red" data-go="NEW">Naye Items Dekhein</button>
+    <button class="btn heroCta" data-go="NEW">Naye Items Dekhein</button>
   </div>
 </section>
 
