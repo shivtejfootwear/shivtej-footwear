@@ -235,7 +235,27 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .waFloat{position:fixed;right:16px;bottom:18px;z-index:40;background:#25D366;color:#fff;border-radius:999px;padding:12px 16px;font-weight:700;font-size:14px;box-shadow:0 10px 24px rgba(0,0,0,.18);text-decoration:none;display:none}
 .waFloat.show{display:inline-block}
 @media (max-width:820px){.logoImg{height:32px}}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.card{opacity:1;transform:none}.stg>*{opacity:1!important}}
+/* hero: photo/video background + footwear drawing animation (set from admin) */
+.heroBg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity .8s;z-index:0}
+.heroBg.on{opacity:1}
+.heroBg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.heroBg:after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,rgba(11,11,11,.9) 0%,rgba(11,11,11,.55) 70%)}
+.heroIn{position:relative;z-index:1}
+.heroArt{position:absolute;right:4%;top:50%;transform:translateY(-50%);width:min(40vw,400px);pointer-events:none;z-index:0}
+.heroArt.off{display:none}
+.heroArt .sandal{width:100%;height:auto;overflow:visible;animation:floatY 5.5s ease-in-out 2.6s infinite}
+.heroArt path{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.6s cubic-bezier(.6,.1,.2,1) forwards}
+.heroArt path:nth-child(1){fill:rgba(227,6,19,0);stroke:#E30613;stroke-width:4.5;animation:draw 1.6s cubic-bezier(.6,.1,.2,1) forwards,fillIn .9s 1.3s forwards}
+.heroArt path:nth-child(2){animation-delay:.5s}
+.heroArt path:nth-child(3){animation-delay:.7s}
+.heroArt path:nth-child(4){animation-delay:.9s}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes fillIn{to{fill:rgba(227,6,19,.28)}}
+@keyframes floatY{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-14px) rotate(2deg)}}
+.hero h1 .ln{display:block;animation:rise .9s cubic-bezier(.2,.7,.2,1) backwards}
+.hero h1 .ln:nth-child(2){animation-delay:.15s}
+@media (max-width:820px){.heroArt{position:relative;right:auto;top:auto;transform:none;width:min(62vw,260px);margin:0 0 18px}}
+@media (prefers-reduced-motion:reduce){.heroArt path{stroke-dashoffset:0!important}*{animation:none!important;transition:none!important}.card{opacity:1;transform:none}.stg>*{opacity:1!important}}
 </style>
 </head>
 <body>
@@ -257,9 +277,11 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 </header>
 
 <section class="hero">
+  <div class="heroBg" id="heroBg"></div>
   <div class="wrap heroIn" id="heroIn">
-    <h1>Naya stock.<br>Naya style.</h1>
-    <p>Har size, har colour, live stock ke saath. Chappal se lekar casual shoes tak, sab ek jagah.</p>
+    <div class="heroArt" id="heroArt"><svg class="sandal" viewBox="0 0 320 170" aria-hidden="true"><path pathLength="1" d="M26 118 Q24 84 92 80 L232 80 Q296 82 296 118 Q296 146 256 146 L66 146 Q28 146 26 118Z"/><path pathLength="1" d="M96 82 Q126 24 160 82"/><path pathLength="1" d="M160 82 Q194 24 226 82"/><path pathLength="1" d="M122 84 Q160 54 198 84"/></svg></div>
+    <h1 id="heroTitle"><span class="ln">Naya stock.</span><span class="ln">Naya style.</span></h1>
+    <p id="heroText">Har size, har colour, live stock ke saath. Chappal se lekar casual shoes tak, sab ek jagah.</p>
     <button class="btn red" data-go="NEW">Naye Items Dekhein</button>
   </div>
 </section>
@@ -641,23 +663,28 @@ const CONFIG={
   filmPoster:"",         /* poster image link (optional) */
   bandImage:"",          /* photo for the bottom band (optional) */
   bandTitle:"Naya season, naya kadam.",
+  heroTitle:"Naya stock.|Naya style.",   /* line break with | */
+  heroText:"Har size, har colour, live stock ke saath. Chappal se lekar casual shoes tak, sab ek jagah.",
+  heroImage:"",          /* photo or video (.mp4) for the top of the page (empty = plain background) */
+  heroAnim:true,         /* footwear drawing animation on/off */
   bandText:"Live stock ke saath, har size par. Apni pasand ka jodi chunein.",
   logo:"logo.png",       /* logo file uploaded to the same repo (empty = text logo) */
-  instagram:"",          /* Instagram profile link */
+  instagram:"https://www.instagram.com/Shivtej_footwear",  /* Instagram profile link */
   facebook:"",           /* Facebook page link */
-  whatsapp:"918898900888"            /* WhatsApp number with country code, e.g. "919xxxxxxxxx" (empty = hidden) */
+  whatsapp:"918898900888"  /* WhatsApp number with country code, e.g. "919xxxxxxxxx" (empty = hidden) */
 };
 /* logo image (falls back to the text logo if the file is missing) */
 if(CONFIG.logo){const im=new Image();im.className="logoImg";im.alt="Shivtej Footwear";im.onload=()=>{$("logoBox").innerHTML="";$("logoBox").appendChild(im)};im.src=CONFIG.logo}
 /* social icons + WhatsApp button (shown only when a link is filled in) */
-(function(){
+function applySocial(){
   const soc=[];
   if(CONFIG.instagram)soc.push(`<a href="${esc(CONFIG.instagram)}" target="_blank" rel="noopener" aria-label="Instagram">IG</a>`);
   if(CONFIG.facebook)soc.push(`<a href="${esc(CONFIG.facebook)}" target="_blank" rel="noopener" aria-label="Facebook">FB</a>`);
   if(CONFIG.whatsapp)soc.push(`<a href="https://wa.me/${esc(CONFIG.whatsapp)}" target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>`);
   $("socials").innerHTML=soc.join("");
-  if(CONFIG.whatsapp){const w=$("waFloat");w.href="https://wa.me/"+encodeURIComponent(CONFIG.whatsapp);w.classList.add("show")}
-})();
+  const w=$("waFloat");
+  if(CONFIG.whatsapp){w.href="https://wa.me/"+encodeURIComponent(CONFIG.whatsapp);w.classList.add("show")}else w.classList.remove("show");
+}
 const fv=$("filmVid");
 if(CONFIG.filmVideo){
   fv.src=CONFIG.filmVideo;if(CONFIG.filmPoster)fv.poster=CONFIG.filmPoster;
@@ -665,9 +692,32 @@ if(CONFIG.filmVideo){
   fv.onplay=()=>{$("filmPlay").style.display="none"};
   fv.onpause=()=>{$("filmPlay").style.display=""};
 }else{fv.style.display="none";$("filmCap").textContent="Brand film jald aayega"}
-if(CONFIG.bandImage)$("bandBg").style.backgroundImage="url('"+CONFIG.bandImage+"')";
-$("bandTitle").textContent=CONFIG.bandTitle;
-$("bandText").textContent=CONFIG.bandText;
+applySettings();
+
+/* ---- site settings (edited from the admin page, stored in Supabase) ---- */
+function applySettings(){
+  const lines=String(CONFIG.heroTitle||"").split("|").map(x=>x.trim()).filter(Boolean);
+  $("heroTitle").innerHTML=(lines.length?lines:["Naya stock.","Naya style."]).map(l=>`<span class="ln">${esc(l)}</span>`).join("");
+  $("heroText").textContent=CONFIG.heroText||"";
+  $("heroArt").classList.toggle("off",CONFIG.heroAnim===false);
+  const hb=$("heroBg");hb.innerHTML="";hb.style.backgroundImage="";hb.classList.remove("on");
+  if(CONFIG.heroImage){
+    if(/\.(mp4|webm)(\?|$)/i.test(CONFIG.heroImage)){
+      const v=document.createElement("video");v.src=CONFIG.heroImage;v.autoplay=true;v.muted=true;v.loop=true;v.setAttribute("playsinline","");hb.appendChild(v);
+    }else{hb.style.backgroundImage="url('"+CONFIG.heroImage.replace(/'/g,"%27")+"')"}
+    hb.classList.add("on");
+  }
+  if(CONFIG.bandImage)$("bandBg").style.backgroundImage="url('"+CONFIG.bandImage.replace(/'/g,"%27")+"')";
+  $("bandTitle").textContent=CONFIG.bandTitle||"";
+  $("bandText").textContent=CONFIG.bandText||"";
+  applySocial();
+}
+async function loadSettings(){
+  try{
+    const r=await fetch(SB_URL+"/rest/v1/site_settings?select=value&key=eq.site",{headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY}});
+    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){Object.assign(CONFIG,v);applySettings()}}
+  }catch(e){}
+}
 
 /* ---- product rails ---- */
 let pickCat="All";
@@ -684,6 +734,7 @@ function renderRails(){
   $("newRail").innerHTML=nl.length?nl.map(miniCard).join(""):'<div class="empty" style="width:100%">Naye items abhi nahi hain.</div>';
   hydrate();
 }
+loadSettings();
 loadProducts();
 </script>
 </body>

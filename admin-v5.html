@@ -6,26 +6,36 @@
 <meta name="robots" content="noindex">
 <title>Shivtej Footwear | Admin</title>
 <style>
-:root{--red:#E30613;--ink:#111;--mute:#6b7280;--line:#e5e7eb;--soft:#f6f6f7}
+:root{--red:#E30613;--ink:#111;--mute:#6b7280;--line:#e5e7eb;--soft:#f6f6f7;--ok:#2e7d32}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--soft);min-height:100vh}
-.wrap{max-width:720px;margin:0 auto;padding:28px 16px}
+.wrap{max-width:720px;margin:0 auto;padding:24px 16px 60px}
 .logo{font-weight:900;color:var(--red);letter-spacing:.4px;font-size:18px;margin-bottom:6px}
 h1{font-size:22px;font-weight:600;margin:8px 0 6px}
-.sub{color:var(--mute);font-size:14px;margin:0 0 22px;line-height:1.6;font-weight:300}
-.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:16px}
-.btn{display:inline-block;border:0;border-radius:999px;padding:13px 22px;font-weight:600;font-size:14px;cursor:pointer;background:var(--ink);color:#fff;text-decoration:none}
+h2{font-size:16px;font-weight:600;margin:0 0 6px}
+.sub{color:var(--mute);font-size:14px;margin:0 0 16px;line-height:1.6;font-weight:300}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}
+.btn{display:inline-block;border:0;border-radius:999px;padding:12px 20px;font-weight:600;font-size:14px;cursor:pointer;background:var(--ink);color:#fff;text-decoration:none}
 .btn.red{background:var(--red)}
 .btn.line{background:#fff;color:var(--ink);border:1px solid var(--line)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.msg{font-size:14px;margin-top:12px;color:var(--mute);line-height:1.6}
-.msg.err{color:#b42318}
-.hidden{display:none}
+.msg{font-size:14px;margin-top:10px;color:var(--mute);line-height:1.6}
+.msg.err{color:#b42318}.msg.ok{color:var(--ok)}
+.hidden{display:none!important}
 ol,ul{padding-left:20px;margin:8px 0;font-size:14px;line-height:1.8;color:#333}
-code{background:var(--soft);padding:2px 6px;border-radius:6px;font-size:13px}
+code{background:var(--soft);padding:2px 6px;border-radius:6px;font-size:13px;word-break:break-all}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.tag{display:inline-block;background:var(--soft);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
-h2{font-size:16px;font-weight:600;margin:0 0 8px}
+.between{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+label.f{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
+input[type=text],input[type=url],textarea{width:100%;font:inherit;font-size:15px;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;background:#fff}
+textarea{min-height:70px;resize:vertical}
+.hint{font-size:12px;color:var(--mute);margin-top:5px;line-height:1.5}
+.check{display:flex;gap:10px;align-items:center;font-size:15px;margin-top:12px}
+.check input{width:20px;height:20px}
+.preview{margin-top:10px;border-radius:12px;overflow:hidden;background:var(--soft);aspect-ratio:16/7;display:grid;place-items:center;color:var(--mute);font-size:13px}
+.preview img,.preview video{width:100%;height:100%;object-fit:cover}
+.sec-no{display:inline-block;background:var(--ink);color:#fff;border-radius:999px;font-size:12px;font-weight:700;padding:3px 9px;margin-right:6px}
+.savebar{position:sticky;bottom:0;background:linear-gradient(0deg,var(--soft) 70%,rgba(246,246,247,0));padding:14px 0 6px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -45,14 +55,85 @@ h2{font-size:16px;font-weight:600;margin:0 0 8px}
     <h2>Aapko admin access nahi hai</h2>
     <p class="sub">Ye Gmail admin list mein nahi hai. Admin ko Supabase mein add karna hoga (neeche steps dekhein).</p>
     <button class="btn line" id="outBtn">Dusre account se login karein</button>
+    <div class="msg err hidden" id="setupMsg"></div>
   </div>
 
   <!-- dashboard -->
   <div id="adminView" class="hidden">
     <div class="card">
-      <div class="row" style="justify-content:space-between">
+      <div class="between">
         <div><h2>Swagat hai</h2><div class="sub" style="margin:0" id="who"></div></div>
-        <button class="btn line" id="logoutBtn">Logout</button>
+        <div class="row">
+          <a class="btn line" href="index.html" target="_blank">Shop page dekhein</a>
+          <button class="btn line" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Website edit karein</h2>
+      <p class="sub" style="margin-bottom:0">Yahan badlaav karke <b>Save</b> dabayein. Shop page par turant dikhega (page reload karke dekhein).</p>
+    </div>
+
+    <!-- 1 hero text -->
+    <div class="card">
+      <h2><span class="sec-no">1</span>Upar ka text (hero)</h2>
+      <label class="f" for="heroTitle">Bada heading</label>
+      <textarea id="heroTitle" placeholder="Naya stock.|Naya style."></textarea>
+      <div class="hint">Do line dikhani ho to beech mein <b>|</b> lagayein. Jaise: <code>Naya stock.|Naya style.</code></div>
+      <label class="f" for="heroText">Chhota text</label>
+      <textarea id="heroText"></textarea>
+    </div>
+
+    <!-- 2 hero photo / video -->
+    <div class="card">
+      <h2><span class="sec-no">2</span>Upar ki photo ya video</h2>
+      <div class="sub" style="margin-bottom:8px">Dukaan ki photo ya chhota video (.mp4) daalein. Khali chhodne par sirf rang wala background dikhega. Max 50 MB.</div>
+      <div class="row">
+        <input type="file" id="heroFile" accept="image/*,video/mp4,video/webm">
+        <button class="btn line" id="heroRemove">Hatayein</button>
+      </div>
+      <div class="preview" id="heroPrev">Koi photo nahi</div>
+      <div class="msg" id="heroMsg"></div>
+    </div>
+
+    <!-- 3 animation -->
+    <div class="card">
+      <h2><span class="sec-no">3</span>Jootey/chappal ka animation</h2>
+      <label class="check"><input type="checkbox" id="heroAnim"> Upar animation dikhayein (chappal ki line khud banti hai)</label>
+    </div>
+
+    <!-- 4 band -->
+    <div class="card">
+      <h2><span class="sec-no">4</span>Beech ka bada band (photo wala)</h2>
+      <label class="f" for="bandTitle">Heading</label>
+      <input type="text" id="bandTitle">
+      <label class="f" for="bandText">Chhota text</label>
+      <textarea id="bandText"></textarea>
+      <label class="f">Band ki photo</label>
+      <div class="row">
+        <input type="file" id="bandFile" accept="image/*">
+        <button class="btn line" id="bandRemove">Hatayein</button>
+      </div>
+      <div class="preview" id="bandPrev">Koi photo nahi</div>
+      <div class="msg" id="bandMsg"></div>
+    </div>
+
+    <!-- 5 links -->
+    <div class="card">
+      <h2><span class="sec-no">5</span>Social aur WhatsApp</h2>
+      <label class="f" for="instagram">Instagram link</label>
+      <input type="url" id="instagram" placeholder="https://www.instagram.com/...">
+      <label class="f" for="facebook">Facebook link</label>
+      <input type="url" id="facebook" placeholder="https://www.facebook.com/...">
+      <label class="f" for="whatsapp">WhatsApp number (country code ke saath, bina + ke)</label>
+      <input type="text" id="whatsapp" placeholder="918898900888">
+    </div>
+
+    <div class="savebar">
+      <div class="row" style="justify-content:space-between">
+        <button class="btn red" id="saveBtn">Save karein</button>
+        <span class="msg" id="saveMsg"></span>
       </div>
     </div>
 
@@ -60,63 +141,123 @@ h2{font-size:16px;font-weight:600;margin:0 0 8px}
       <h2>Kaam kahan se karein</h2>
       <ul>
         <li><b>Products, stock, price, photo:</b> Owner App (Android) se.</li>
-        <li><b>Shop page ka design aur text:</b> GitHub par <code>shop-v5.html</code> file kholkar pencil (Edit) se.</li>
         <li><b>Orders aur data:</b> Supabase dashboard ki Table Editor se.</li>
         <li><b>OTP settings:</b> MSG91 dashboard se.</li>
+        <li><b>Shop ka layout (structure) badalna:</b> GitHub par <code>index.html</code> file, ye ab zaroori nahi hai jab tak layout na badalna ho.</li>
       </ul>
-      <div class="row" style="margin-top:12px">
-        <a class="btn dark" style="background:var(--ink)" href="shop-v5.html" target="_blank">Shop page dekhein</a>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Pehli baar setup (ek hi baar)</h2>
-      <ol>
-        <li>Supabase → SQL Editor mein ye chalayein (ye sirf admin row jodta hai):<br>
-          <code>insert into public.admin_users (id) select id from auth.users where email = 'shivtejfootwear@gmail.com' on conflict (id) do nothing;</code></li>
-        <li>Iske baad is page par reload karein. Admin panel khul jayega.</li>
-      </ol>
     </div>
   </div>
-
-  <div class="msg hidden" id="setupMsg"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 const SB_URL="https://rvufigsdclnzelmepigb.supabase.co";
 const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
+const BUCKET="site-media";
+const MAX_MB=50;
 const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const show=v=>["loginView","deniedView","adminView"].forEach(x=>$(x).classList.toggle("hidden",x!==v));
+const say=(id,t,cls)=>{const el=$(id);el.textContent=t;el.className="msg "+(cls||"")};
+
+let sb=null, token="", cfg={};
+
+function fillForm(){
+  $("heroTitle").value=cfg.heroTitle??"Naya stock.|Naya style.";
+  $("heroText").value=cfg.heroText??"";
+  $("heroAnim").checked=cfg.heroAnim!==false;
+  $("bandTitle").value=cfg.bandTitle??"";
+  $("bandText").value=cfg.bandText??"";
+  $("instagram").value=cfg.instagram??"";
+  $("facebook").value=cfg.facebook??"";
+  $("whatsapp").value=cfg.whatsapp??"";
+  paintPreview("heroPrev",cfg.heroImage);
+  paintPreview("bandPrev",cfg.bandImage);
+}
+function paintPreview(id,url){
+  const el=$(id);el.innerHTML="";
+  if(!url){el.textContent="Koi photo nahi";return}
+  if(/\.(mp4|webm)(\?|$)/i.test(url)){const v=document.createElement("video");v.src=url;v.muted=true;v.controls=true;el.appendChild(v)}
+  else{const im=new Image();im.src=url;im.alt="";el.appendChild(im)}
+}
+
+async function uploadMedia(file,slot,msgId){
+  if(file.size>MAX_MB*1024*1024){say(msgId,"File "+MAX_MB+" MB se badi hai. Chhoti file chunein.","err");return ""}
+  say(msgId,"Upload ho raha hai...");
+  const ext=(file.name.split(".").pop()||"bin").toLowerCase().replace(/[^a-z0-9]/g,"")||"bin";
+  const name=slot+"-"+Date.now()+"."+ext;
+  const r=await fetch(SB_URL+"/storage/v1/object/"+BUCKET+"/"+name,{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+token,"x-upsert":"true","content-type":file.type||"application/octet-stream"},body:file});
+  if(!r.ok){say(msgId,"Upload nahi hua: "+(await r.text()).slice(0,160),"err");return ""}
+  say(msgId,"Upload ho gaya. Neeche Save dabayein.","ok");
+  return SB_URL+"/storage/v1/object/public/"+BUCKET+"/"+name;
+}
+
+function collect(){
+  return {
+    heroTitle:$("heroTitle").value.trim(),
+    heroText:$("heroText").value.trim(),
+    heroAnim:$("heroAnim").checked,
+    heroImage:cfg.heroImage||"",
+    bandTitle:$("bandTitle").value.trim(),
+    bandText:$("bandText").value.trim(),
+    bandImage:cfg.bandImage||"",
+    instagram:$("instagram").value.trim(),
+    facebook:$("facebook").value.trim(),
+    whatsapp:$("whatsapp").value.replace(/[^0-9]/g,"")
+  };
+}
+
+async function loadSettings(){
+  const {data,error}=await sb.from("site_settings").select("value").eq("key","site").maybeSingle();
+  if(error){say("saveMsg","Settings load nahi hui: "+error.message,"err");cfg={};fillForm();return}
+  cfg=(data&&data.value)||{};
+  fillForm();
+}
 
 function boot(){
   if(!window.supabase){
     show("loginView");
-    $("loginMsg").textContent="Login library load nahi hui. Internet check karke page reload karein.";
-    $("loginMsg").classList.add("err");
+    say("loginMsg","Login library load nahi hui. Internet check karke page reload karein.","err");
     $("gBtn").disabled=true;
     return;
   }
-  const sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,detectSessionInUrl:true}});
+  sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,detectSessionInUrl:true}});
 
   async function check(){
     const {data:{session}}=await sb.auth.getSession();
     if(!session){show("loginView");return}
+    token=session.access_token;
     const {data,error}=await sb.from("admin_users").select("id,role,active").eq("id",session.user.id).maybeSingle();
-    if(error){show("deniedView");$("setupMsg").classList.remove("hidden");$("setupMsg").textContent="Admin check nahi ho paya: "+error.message;return}
+    if(error){show("deniedView");say("setupMsg","Admin check nahi ho paya: "+error.message,"err");return}
     if(!data||data.active===false){show("deniedView");return}
     $("who").textContent=(session.user.email||"")+" · "+(data.role||"admin");
     show("adminView");
+    loadSettings();
   }
 
   $("gBtn").onclick=async()=>{
-    $("loginMsg").textContent="Google par bhej rahe hain...";
+    say("loginMsg","Google par bhej rahe hain...");
     const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});
-    if(error){$("loginMsg").textContent="Login nahi ho paya: "+error.message;$("loginMsg").classList.add("err")}
+    if(error)say("loginMsg","Login nahi ho paya: "+error.message,"err");
   };
   const out=async()=>{await sb.auth.signOut();show("loginView")};
   $("logoutBtn").onclick=out;
   $("outBtn").onclick=out;
+
+  $("heroFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"hero","heroMsg");if(u){cfg.heroImage=u;paintPreview("heroPrev",u)}};
+  $("bandFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"band","bandMsg");if(u){cfg.bandImage=u;paintPreview("bandPrev",u)}};
+  $("heroRemove").onclick=()=>{cfg.heroImage="";paintPreview("heroPrev","");say("heroMsg","Photo hata di. Save dabayein.","ok")};
+  $("bandRemove").onclick=()=>{cfg.bandImage="";paintPreview("bandPrev","");say("bandMsg","Photo hata di. Save dabayein.","ok")};
+
+  $("saveBtn").onclick=async()=>{
+    $("saveBtn").disabled=true;say("saveMsg","Save ho raha hai...");
+    const value=collect();
+    const {error}=await sb.from("site_settings").upsert({key:"site",value,updated_at:new Date().toISOString()},{onConflict:"key"});
+    $("saveBtn").disabled=false;
+    if(error){say("saveMsg","Save nahi hua: "+error.message,"err");return}
+    cfg=value;say("saveMsg","Save ho gaya. Shop page reload karke dekhein.","ok");
+  };
+
   sb.auth.onAuthStateChange(()=>check());
   check();
 }
