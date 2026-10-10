@@ -73,6 +73,16 @@ button{cursor:pointer}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .filters select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .filters label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer}
+.prange{padding:4px 2px 6px}
+.pvals{display:flex;justify-content:space-between;font-size:14px;font-weight:700;margin-bottom:12px}
+.dual{position:relative;height:22px}
+.dual .ptrack{position:absolute;left:0;right:0;top:9px;height:4px;border-radius:4px;background:var(--line)}
+.dual .pfill{position:absolute;top:9px;height:4px;border-radius:4px;background:var(--red)}
+.dual input{position:absolute;left:0;top:0;width:100%;height:22px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dual input::-webkit-slider-runnable-track{background:none;height:22px}
+.dual input::-moz-range-track{background:none}
+.dual input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--red);cursor:pointer;margin-top:2px}
+.dual input::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid var(--red);cursor:pointer}
 .reset{margin-top:18px;background:none;border:0;color:var(--red);font-weight:700;padding:0;text-decoration:underline}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
 .card{position:relative;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;transition:transform .3s,box-shadow .3s,border-color .3s;opacity:0;transform:translateY(14px)}
@@ -350,13 +360,14 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <h4>Colour</h4>
       <select id="fColor"></select>
       <h4>Price</h4>
-      <select id="fPrice">
-        <option value="">All Prices</option>
-        <option value="0-500">₹0 – ₹500</option>
-        <option value="500-1000">₹500 – ₹1,000</option>
-        <option value="1000-1500">₹1,000 – ₹1,500</option>
-        <option value="1500-999999">Above ₹1,500</option>
-      </select>
+      <div class="prange">
+        <div class="pvals"><span id="pMinV">₹0</span><span id="pMaxV">₹0</span></div>
+        <div class="dual">
+          <div class="ptrack"></div><div class="pfill" id="pFill"></div>
+          <input type="range" id="pMin" aria-label="Minimum price">
+          <input type="range" id="pMax" aria-label="Maximum price">
+        </div>
+      </div>
       <h4>Show</h4>
       <label><input type="checkbox" id="fNew"> New items only</label>
       <button class="reset" id="reset">Clear filters</button>
@@ -460,7 +471,7 @@ function match(p){
   if(S.cat!=="All"&&S.cat!=="NEW"&&p.category!==S.cat)return false;
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
-  if(S.price){const [lo,hi]=S.price.split("-").map(Number);if(p.price<lo||p.price>hi)return false}
+  if(S.priceMin!=null&&(p.price<S.priceMin||p.price>S.priceMax))return false;
   if(S.colour&&!p.variants.some(v=>v.colour===S.colour))return false;
   if(S.size&&!p.variants.some(v=>v.sizes.some(s=>s.size===S.size&&s.qty!==0)))return false;
   if(q){const t=[p.name,p.article,p.brand,p.category,...p.variants.map(v=>v.colour)].join(" ").toLowerCase();if(!t.includes(q))return false}
@@ -468,12 +479,33 @@ function match(p){
 }
 
 /* ---------- filters ---------- */
+/* price slider: range comes from the cheapest and dearest product */
+function buildPrice(){
+  const ps=products.map(p=>p.price).filter(x=>x>=0);
+  const lo=ps.length?Math.floor(Math.min(...ps)/10)*10:0, hi=ps.length?Math.ceil(Math.max(...ps)/10)*10:0;
+  const mn=$("pMin"),mx=$("pMax");
+  mn.min=mx.min=lo; mn.max=mx.max=hi; mn.step=mx.step=10;
+  if(S.priceMin==null||S.priceMin<lo||S.priceMin>hi)S.priceMin=lo;
+  if(S.priceMax==null||S.priceMax>hi||S.priceMax<lo)S.priceMax=hi;
+  mn.value=S.priceMin; mx.value=S.priceMax;
+  paintPrice();
+}
+function paintPrice(){
+  const mn=$("pMin"),mx=$("pMax"),lo=+mn.min,hi=+mn.max;
+  const a=Math.min(+mn.value,+mx.value),b=Math.max(+mn.value,+mx.value);
+  S.priceMin=a;S.priceMax=b;
+  $("pMinV").textContent="₹"+a.toLocaleString("en-IN");
+  $("pMaxV").textContent="₹"+b.toLocaleString("en-IN");
+  const span=(hi-lo)||1,fill=$("pFill");
+  fill.style.left=((a-lo)/span*100)+"%";fill.style.width=((b-a)/span*100)+"%";
+}
 function buildFilters(){
   const cats=allCats();
   $("fCat").innerHTML=["All",...cats].map(c=>`<button class="chip ${S.cat===c?"on":""}" data-cat="${esc(c)}">${esc(c==="All"?"All":c)}</button>`).join("");
   $("fBrand").innerHTML='<option value="">All Brands</option>'+allBrands().map(b=>`<option ${S.brand===b?"selected":""}>${esc(b)}</option>`).join("");
   $("fSize").innerHTML='<option value="">All Sizes</option>'+allSizes().map(s=>`<option ${S.size===s?"selected":""}>${esc(s)}</option>`).join("");
   $("fColor").innerHTML='<option value="">All Colours</option>'+allColours().map(c=>`<option ${S.colour===c?"selected":""}>${esc(c)}</option>`).join("");
+  buildPrice();
 }
 
 /* ---------- product grid ---------- */
@@ -661,9 +693,10 @@ $("sort").onchange=e=>{S.sort=e.target.value;render()};
 $("fBrand").onchange=e=>{S.brand=e.target.value;render()};
 $("fSize").onchange=e=>{S.size=e.target.value;render()};
 $("fColor").onchange=e=>{S.colour=e.target.value;render()};
-$("fPrice").onchange=e=>{S.price=e.target.value;render()};
+$("pMin").oninput=()=>{if(+$("pMin").value>+$("pMax").value)$("pMin").value=$("pMax").value;paintPrice();render()};
+$("pMax").oninput=()=>{if(+$("pMax").value<+$("pMin").value)$("pMax").value=$("pMin").value;paintPrice();render()};
 $("fNew").onchange=e=>{S.newOnly=e.target.checked;render()};
-$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";$("fPrice").value="";$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
+$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("ovProduct").classList.remove("show");$("ovCart").classList.remove("show")}});
 
 $("grid").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
