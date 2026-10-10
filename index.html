@@ -143,6 +143,10 @@ button{cursor:pointer}
 .field:focus{border-color:var(--ink)}
 textarea.field{min-height:76px;resize:vertical}
 .note{font-size:12px;color:var(--mute);margin-top:10px}
+.steps{list-style:none;display:flex;gap:6px;flex-wrap:wrap;padding:0;margin:14px 0}
+.steps li{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);color:#8a8a8a}
+.steps li.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tres{font-size:14px;line-height:1.7;margin-top:14px}
 .done{text-align:center;padding:40px 10px}
 .done .tick{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:34px;animation:pop .45s ease}
 @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08)}100%{transform:none;opacity:1}}
@@ -300,7 +304,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
-    <div class="icons"><button class="ico" title="Login" id="loginBtn">👤</button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
+    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none">📦</button><button class="ico" title="Login" id="loginBtn">👤</button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
@@ -395,6 +399,8 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 <div class="ov" id="ovProduct"><div class="panel" id="pPanel"></div></div>
 <!-- cart and checkout -->
 <div class="ov" id="ovCart"><div class="panel" id="cPanel"></div></div>
+<!-- order tracking -->
+<div class="ov" id="ovTrack"><div class="panel" id="tPanel"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -650,6 +656,7 @@ async function placeOrder(){
     const res=await rpc("site_place_order",{p:{name,mobile,address,payment,items}});
     if(!res||!res.ok)throw new Error("FAILED");
     cart=[];saveCart();renderCartCount();
+    rememberOrder(res.id,mobile);showTrackIcon();
     $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
       <p>Your order number: <b>${esc(res.id)}</b></p><p class="sub">Total: ${money(res.total)}</p>
       <button class="btn dark" id="fin">Continue Shopping</button></div>`;
@@ -688,6 +695,9 @@ document.addEventListener("click",e=>{
 });
 $("cartOpen").onclick=openCart;
 ["ovProduct","ovCart"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
+$("trackOpen").onclick=openTrack;
+$("ovTrack").addEventListener("click",ev=>{if(ev.target.id==="ovTrack")$("ovTrack").classList.remove("show")});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ovTrack").classList.remove("show")});
 $("q").oninput=e=>{S.q=e.target.value;render()};
 $("sort").onchange=e=>{S.sort=e.target.value;render()};
 $("fBrand").onchange=e=>{S.brand=e.target.value;render()};
@@ -799,6 +809,52 @@ function renderRails(){
   $("newRail").innerHTML=nl.length?nl.map(miniCard).join(""):'<div class="empty" style="width:100%">No new items yet.</div>';
   hydrate();
 }
+/* ---------- order tracking ---------- */
+// The 📦 icon appears only after this browser placed an order. The last order is remembered here.
+const TRACK_STEPS=["New","Confirmed","Packed","Shipped","Delivered"];
+const lastOrder=()=>{try{return JSON.parse(localStorage.getItem("sv5_last_order")||"null")}catch(e){return null}};
+const rememberOrder=(id,mobile)=>{try{localStorage.setItem("sv5_last_order",JSON.stringify({id,mobile}))}catch(e){}};
+function showTrackIcon(){$("trackOpen").style.display=""}
+function openTrack(){
+  const lo=lastOrder()||{};
+  $("tPanel").innerHTML=`<h3>Track your order</h3>
+    <p class="sub">Enter your order number and the mobile number you used for the order.</p>
+    <input class="field" id="tId" placeholder="Order number (e.g. SW1234...)" value="${esc(lo.id||"")}">
+    <input class="field" id="tMob" placeholder="Mobile number" inputmode="numeric" value="${esc(lo.mobile||"")}">
+    <button class="btn dark" style="width:100%" id="tBtn">Check status</button>
+    <div id="tRes"></div>`;
+  $("tBtn").onclick=checkTrack;
+  $("ovTrack").classList.add("show");
+}
+function trackHtml(o){
+  const st=o.order_status||"New";
+  if(st==="Cancelled")return `<div class="tres"><b>Order ${esc(o.id)}: Cancelled</b></div>`;
+  const idx=Math.max(0,TRACK_STEPS.indexOf(st));
+  const steps=TRACK_STEPS.map((s,i)=>`<li class="${i<=idx?"on":""}">${s}</li>`).join("");
+  return `<div class="tres"><b>Order ${esc(o.id)}</b>
+    <ol class="steps">${steps}</ol>
+    ${o.courier?`<div>Courier: <b>${esc(o.courier)}</b></div>`:""}
+    ${o.tracking_no?`<div>Tracking number: <b>${esc(o.tracking_no)}</b></div>`:""}
+    <div>Shipping: ${money(o.shipping)}</div>
+    <div>Total: <b>${money(o.total)}</b></div></div>`;
+}
+async function checkTrack(){
+  const id=$("tId").value.trim(),mob=$("tMob").value.trim();
+  if(!id){toast("Enter your order number");return}
+  if(!/^[6-9]\d{9}$/.test(mob)){toast("Enter a valid 10-digit mobile number");return}
+  const btn=$("tBtn");btn.disabled=true;btn.textContent="Checking...";
+  try{
+    const rows=await rpc("site_track_order",{p_id:id,p_mobile:mob});
+    const o=Array.isArray(rows)?rows[0]:null;
+    $("tRes").innerHTML=o?trackHtml(o):`<p class="sub">No order found with this number and mobile.</p>`;
+  }catch(e){
+    toast("Could not check now. Please try again");
+  }finally{
+    btn.disabled=false;btn.textContent="Check status";
+  }
+}
+if(lastOrder())showTrackIcon();
+
 loadSettings();
 loadProducts();
 </script>
