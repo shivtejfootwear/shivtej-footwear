@@ -695,7 +695,7 @@ const CONFIG={
   heroArticle:"6102",    /* article code; clicking the floating photo opens this product (empty = no click) */
   bandText:"Live stock in every size. Pick your pair.",
   logo:"logo.png",       /* logo file uploaded to the same repo (empty = text logo) */
-  instagram:"https://www.instagram.com/Shivtej_footwear",  /* Instagram profile link */
+  instagram:"https://www.instagram.com/shivtej_footwear",  /* Instagram profile link */
   facebook:"",           /* Facebook page link */
   whatsapp:"918898900888"  /* WhatsApp number with country code, e.g. "919xxxxxxxxx" (empty = hidden) */
 };
@@ -744,7 +744,7 @@ function applySettings(){
 async function loadSettings(){
   try{
     const r=await fetch(SB_URL+"/rest/v1/site_settings?select=value&key=eq.site",{headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY}});
-    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){Object.assign(CONFIG,v);applySettings()}}
+    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){const keep={instagram:CONFIG.instagram,whatsapp:CONFIG.whatsapp,facebook:CONFIG.facebook};Object.assign(CONFIG,v);/* empty social links fall back to the defaults above */["instagram","whatsapp","facebook"].forEach(k=>{if(!String(CONFIG[k]||"").trim())CONFIG[k]=keep[k]});applySettings()}}
   }catch(e){}
 }
 
