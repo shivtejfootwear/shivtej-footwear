@@ -689,7 +689,7 @@ function drawCheckout(){
     <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
     <textarea class="field" id="cAddr" placeholder="House no., street, area / landmark"></textarea>
     <div id="cSum" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:6px 0 12px;font-size:14px;line-height:1.8"></div>
-    <select class="field" id="cPay"><option value="COD">Cash on Delivery</option><option value="ONLINE">Online Payment (UPI / Google Pay / PhonePe)</option></select>
+    <select class="field" id="cPay"><option value="ONLINE">Online Payment (UPI / Google Pay / PhonePe)</option></select>
     <button class="btn red" style="width:100%" id="placeBtn">Place Order</button>
     <p class="note">Mobile OTP verification will be added later.</p>`;
   $("cX").onclick=()=>$("ovCart").classList.remove("show");
@@ -745,6 +745,7 @@ async function runPayment(id,mob,btn){
     const result=await startPayment(id,mob);
     if(result==="paid"){
       toast("Payment received. Confirming your order...");
+      if(btn)btn.remove();
       const ok=await waitPaid(id,mob);
       toast(ok?"Payment received. Thank you!":"Payment received. Your order will update shortly.");
       if($("ovTrack").classList.contains("show")){$("tId").value=id;$("tMob").value=mob;checkTrack()}
@@ -752,7 +753,12 @@ async function runPayment(id,mob,btn){
       toast("Payment not completed. You can pay later from Track order.");
     }
   }catch(e){
-    toast("Could not open payment now. Please try again.");
+    if(String(e.message||"").includes("ALREADY_PAID")){
+      toast("Payment already received. Thank you!");
+      if(btn)btn.remove();
+    }else{
+      toast("Could not open payment now. Please try again.");
+    }
   }finally{
     if(btn){btn.disabled=false;btn.textContent="Pay now";}
   }
