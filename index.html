@@ -148,6 +148,11 @@ textarea.field{min-height:76px;resize:vertical}
 .steps li.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .tres{font-size:14px;line-height:1.7;margin-top:14px}
 .done{text-align:center;padding:40px 10px}
+.bill{font-size:14px}
+.bill .brow{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:3px 0}
+.bill .brow span{flex:1;min-width:0}
+.bill .brow.sep{border-top:1px dashed var(--line);margin-top:6px;padding-top:8px}
+.bill .brow.tot{font-size:16px;border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
 .done .tick{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:34px;animation:pop .45s ease}
 @keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.08)}100%{transform:none;opacity:1}}
 header.top{transition:background .35s,box-shadow .35s}
@@ -624,7 +629,9 @@ function drawCart(){
     ${lines.length?lines.map(x=>`<div class="cline"><img src="" alt="" data-cimg="${esc(x.p.variants[0]?.media[0]||"")}">
       <div class="meta"><b>${esc(x.p.name)}</b>Colour: ${esc(x.colour)} · Size: ${esc(x.size)}<br>${money(x.p.price)} × ${x.qty}
       <div><button class="rm" data-rm="${x.i}">Remove</button></div></div></div>`).join("")
-      +`<div class="total"><span>Total</span><span>${money(total)}</span></div>
+      +`<div class="total"><span>Items total</span><span>${money(total)}</span></div>
+      <div class="total"><span>Shipping</span><span>${money(SHIP_FEE)}</span></div>
+      <div class="total"><span>Total payable</span><span>${money(total+SHIP_FEE)}</span></div>
       <button class="btn red" style="width:100%" id="goCheckout">Checkout</button>`
       :'<p class="sub">Your cart is empty.</p>'}`;
   $("cX").onclick=()=>$("ovCart").classList.remove("show");
@@ -632,41 +639,72 @@ function drawCart(){
   const go=$("goCheckout");if(go)go.onclick=drawCheckout;
   $("cPanel").querySelectorAll("[data-cimg]").forEach(async img=>{const u=await photoUrl(img.dataset.cimg);if(u)img.src=u});
 }
+// Shipping charge for website orders. The server sets the real amount; this is only what the customer sees.
+let SHIP_FEE=80;
+async function loadShipFee(){
+  try{const v=await rpc("site_shipping_fee");const n=Number(v);if(isFinite(n)&&n>=0)SHIP_FEE=n}catch(e){}
+}
+const COUNTRIES=["India","Nepal","Bhutan","Bangladesh","Sri Lanka","UAE","USA","UK","Canada","Australia","Other"];
+const INDIAN_STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
+// Bill shown at checkout and on the order confirmation: each item, items total, shipping, total payable.
+function billHtml(rows,sub,ship,total){
+  return `<div class="bill">${rows.map(r=>`<div class="brow"><span>${esc(r.name)} · ${esc(r.colour)} · Size ${esc(r.size)} × ${r.qty}</span><b>${money(r.amount)}</b></div>`).join("")}
+    <div class="brow sep"><span>Items total</span><b>${money(sub)}</b></div>
+    <div class="brow"><span>Shipping</span><b>${money(ship)}</b></div>
+    <div class="brow tot"><span>Total payable</span><b>${money(total)}</b></div></div>`;
+}
+function paintCheckoutSum(){
+  const rows=cartLines().map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const sub=rows.reduce((n,r)=>n+r.amount,0);
+  $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,SHIP_FEE,sub+SHIP_FEE);
+}
 function drawCheckout(){
   $("cPanel").innerHTML=`<button class="x" id="cX">×</button><h3>Order Details</h3>
     <p class="sub">Stock will be updated automatically after you place the order.</p>
-    <input class="field" id="cName" placeholder="Your name">
+    <input class="field" id="cName" placeholder="Full name">
     <input class="field" id="cMob" inputmode="numeric" maxlength="10" placeholder="10 digit mobile number">
-    <textarea class="field" id="cAddr" placeholder="Delivery address"></textarea>
-    <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
+    <label class="note" style="display:block;margin:4px 0">Country</label>
+    <select class="field" id="cCountry">${COUNTRIES.map(c=>`<option>${c}</option>`).join("")}</select>
+    <label class="note" style="display:block;margin:4px 0">State</label>
+    <select class="field" id="cState"><option value="">Select state</option>${INDIAN_STATES.map(s=>`<option>${s}</option>`).join("")}</select>
     <input class="field" id="cCity" placeholder="City">
-    <input class="field" id="cState" placeholder="State">
+    <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
+    <textarea class="field" id="cAddr" placeholder="House no., street, area / landmark"></textarea>
+    <div id="cSum" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:6px 0 12px;font-size:14px;line-height:1.8"></div>
     <select class="field" id="cPay"><option value="COD">Cash on Delivery</option><option value="ONLINE">Online Payment (soon)</option></select>
     <button class="btn red" style="width:100%" id="placeBtn">Place Order</button>
     <p class="note">Mobile OTP verification will be added later.</p>`;
   $("cX").onclick=()=>$("ovCart").classList.remove("show");
   $("placeBtn").onclick=placeOrder;
+  paintCheckoutSum();
 }
 async function placeOrder(){
   const name=$("cName").value.trim(),mobile=$("cMob").value.trim(),address=$("cAddr").value.trim(),payment=$("cPay").value;
-  const pincode=$("cPin").value.trim(),city=$("cCity").value.trim(),state=$("cState").value.trim();
+  const country=$("cCountry").value,state=$("cState").value,city=$("cCity").value.trim(),pincode=$("cPin").value.trim();
   if(!name||!address){toast("Please enter name and address");return}
   if(!/^[6-9]\d{9}$/.test(mobile)){toast("Enter a valid 10-digit mobile number");return}
+  if(country!=="India"){toast("Online orders are for India only right now. Please contact the shop on WhatsApp.");return}
+  if(!state){toast("Please select your state");return}
+  if(!city){toast("Please enter your city");return}
   if(!/^\d{6}$/.test(pincode)){toast("Enter a valid 6-digit pincode");return}
-  if(!city||!state){toast("Please enter city and state");return}
   const lines=cartLines();
   if(!lines.length){toast("Your cart is empty");return}
   const btn=$("placeBtn");btn.disabled=true;btn.textContent="Placing order...";
   const items=lines.map(x=>({product_id:x.pid,colour:x.colour,size:String(x.size),qty:Number(x.qty)}));
   try{
-    const res=await rpc("site_place_order",{p:{name,mobile,address,pincode,city,state,payment,items}});
+    const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items}});
     if(!res||!res.ok)throw new Error("FAILED");
     cart=[];saveCart();renderCartCount();
     rememberOrder(res.id,mobile);showTrackIcon();
+    const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
     $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
-      <p>Your order number: <b>${esc(res.id)}</b></p><p class="sub">Total: ${money(res.total)}</p>
-      <button class="btn dark" id="fin">Continue Shopping</button></div>`;
+      <p>Your order number: <b>${esc(res.id)}</b></p>
+      <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total)}</div>
+      <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
+      <button class="btn red" id="trackNow" style="width:100%">Track this order</button>
+      <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
     $("fin").onclick=()=>$("ovCart").classList.remove("show");
+    $("trackNow").onclick=()=>{$("ovCart").classList.remove("show");openTrack()};
     loadProducts();
   }catch(e){
     btn.disabled=false;btn.textContent="Place Order";
@@ -841,6 +879,7 @@ function trackHtml(o){
     <ol class="steps">${steps}</ol>
     ${o.courier?`<div>Courier: <b>${esc(o.courier)}</b></div>`:""}
     ${o.tracking_no?`<div>Tracking number: <b>${esc(o.tracking_no)}</b></div>`:""}
+    ${o.shipment_status?`<div>Live status: <b>${esc(o.shipment_status)}</b></div>`:""}
     <div>Shipping: ${money(o.shipping)}</div>
     <div>Total: <b>${money(o.total)}</b></div></div>`;
 }
@@ -862,6 +901,7 @@ async function checkTrack(){
 if(lastOrder())showTrackIcon();
 
 loadSettings();
+loadShipFee();
 loadProducts();
 </script>
 </body>

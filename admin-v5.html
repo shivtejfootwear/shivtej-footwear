@@ -45,6 +45,8 @@ textarea{min-height:70px;resize:vertical}
 .ordbox{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:14px;font-size:14px;line-height:1.7}
 .ordbox .items{margin:6px 0 0;padding-left:18px}
 .ordbox .tot{font-weight:600;margin-top:8px}
+.sel{width:100%;font:inherit;font-size:15px;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;background:#fff}
+#shipFee{width:160px}
 </style>
 </head>
 <body>
@@ -79,6 +81,17 @@ textarea{min-height:70px;resize:vertical}
       </div>
     </div>
 
+    <!-- shipping charge for website orders -->
+    <div class="card">
+      <h2>Shipping charge (website)</h2>
+      <p class="sub" style="margin-bottom:0">Customers pay this amount at checkout. You can change it here any time.</p>
+      <div class="row" style="margin-top:10px">
+        <input type="number" class="sel" id="shipFee" min="0" max="5000" step="1" inputmode="numeric" placeholder="80">
+        <button class="btn red" id="shipFeeSave">Save</button>
+        <span class="msg" id="shipFeeMsg"></span>
+      </div>
+    </div>
+
     <!-- orders -->
     <div class="card">
       <div class="between">
@@ -99,6 +112,28 @@ textarea{min-height:70px;resize:vertical}
           <div class="tot" id="ordTotal"></div>
         </div>
 
+        <div class="ordbox" style="margin-top:14px">
+          <b>Customer address (edit if needed)</b>
+          <label class="f" for="adName">Name</label>
+          <input type="text" id="adName">
+          <label class="f" for="adMob">Mobile</label>
+          <input type="text" id="adMob" inputmode="numeric" maxlength="10">
+          <label class="f" for="adCountry">Country</label>
+          <select id="adCountry" class="sel"></select>
+          <label class="f" for="adState">State</label>
+          <select id="adState" class="sel"></select>
+          <label class="f" for="adCity">City</label>
+          <input type="text" id="adCity">
+          <label class="f" for="adPin">Pincode</label>
+          <input type="text" id="adPin" inputmode="numeric" maxlength="6">
+          <label class="f" for="adAddr">Address</label>
+          <textarea id="adAddr"></textarea>
+          <div class="row" style="margin-top:10px">
+            <button class="btn line" id="adSave">Save address</button>
+            <span class="msg" id="adMsg"></span>
+          </div>
+        </div>
+
         <label class="f" for="ordStatus">Order status</label>
         <select id="ordStatus" style="width:100%;font:inherit;font-size:15px;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;background:#fff">
           <option>New</option><option>Confirmed</option><option>Packed</option><option>Shipped</option><option>Delivered</option><option>Cancelled</option>
@@ -116,16 +151,20 @@ textarea{min-height:70px;resize:vertical}
         <div class="hint">Shown to the customer as a separate line. The total is updated when you save.</div>
 
         <div class="row" style="margin-top:14px">
-          <button class="btn dark" id="ordShip">Create shipment (Shiprocket)</button>
-          <span class="msg" id="ordShipMsg"></span>
-        </div>
-        <div class="hint">Use this when the order is packed. It books the courier, the AWB and the pickup. The customer then sees the status and tracking number.</div>
-
-        <div class="row" style="margin-top:14px">
           <button class="btn red" id="ordSave">Save order</button>
           <button class="btn line" id="ordClose">Close</button>
           <span class="msg" id="ordSaveMsg"></span>
         </div>
+
+        <label class="f" for="ordCourierPick">Courier (from Shiprocket)</label>
+        <select id="ordCourierPick" class="sel"><option value="">Recommended (Shiprocket chooses)</option></select>
+        <div class="hint" id="ordCourierHint"></div>
+
+        <div class="row" style="margin-top:14px">
+          <button class="btn dark" id="ordShip">Create shipment (Shiprocket)</button>
+          <span class="msg" id="ordShipMsg"></span>
+        </div>
+        <div class="hint">Use this when the order is packed. It books the courier, the AWB and the pickup. The AWB, courier and live status then come back here and the customer sees them on the website.</div>
       </div>
     </div>
 
@@ -340,10 +379,12 @@ function openOrder(id){
   $("ordDetail").classList.remove("hidden");
   $("ordTitle").textContent=o.id;
   $("ordBadge").textContent=o.order_status||"New";
-  $("ordInfo").innerHTML=`${esc(c.name||"")}<br>${esc(c.mobile||"")}<br>${esc(c.address||"")}${c.city?`, ${esc(c.city)}`:""}${c.state?`, ${esc(c.state)}`:""}${c.pincode?` - ${esc(c.pincode)}`:""}<br>Payment: ${esc(o.payment_status||"")}<br>Placed: ${esc(fmtDate(o.created_at))}${o.tracking_no?`<br>AWB: <b>${esc(o.tracking_no)}</b>${o.courier?` · ${esc(o.courier)}`:""}`:""}`;
+  $("ordInfo").innerHTML=`${esc(c.name||"")}<br>${esc(c.mobile||"")}<br>${esc(c.address||"")}${c.city?`, ${esc(c.city)}`:""}${c.state?`, ${esc(c.state)}`:""}${c.pincode?` - ${esc(c.pincode)}`:""}<br>Payment: ${esc(o.payment_status||"")}<br>Placed: ${esc(fmtDate(o.created_at))}${o.shipment_status?`<br>Live status: <b>${esc(o.shipment_status)}</b>`:""}${o.tracking_no?`<br>AWB: <b>${esc(o.tracking_no)}</b>${o.courier?` · ${esc(o.courier)}`:""}`:""}`;
   $("ordShip").disabled=!["Confirmed","Packed"].includes(o.order_status)||!!o.tracking_no;
   say("ordShipMsg","");
   $("ordItems").innerHTML=(Array.isArray(o.items)?o.items:[]).map(it=>`<li>${esc(it.name||it.article||"Item")} · ${esc(it.colour||"")} · ${esc(it.size||"")} × ${esc(it.qty||it.q||1)}</li>`).join("");
+  fillAddress(o);
+  loadCouriers(o);
   $("ordStatus").value=o.order_status||"New";
   $("ordCourier").value=o.courier||"";
   $("ordTracking").value=o.tracking_no||"";
@@ -353,7 +394,77 @@ function openOrder(id){
   $("ordDetail").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
+const ADDR_COUNTRIES=["India","Nepal","Bhutan","Bangladesh","Sri Lanka","UAE","USA","UK","Canada","Australia","Other"];
+const ADDR_STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
+function populateAddressSelects(){
+  $("adCountry").innerHTML=ADDR_COUNTRIES.map(c=>`<option>${esc(c)}</option>`).join("");
+  $("adState").innerHTML=`<option value="">Select state</option>`+ADDR_STATES.map(s=>`<option>${esc(s)}</option>`).join("");
+}
+function fillAddress(o){
+  const c=o.customer||{};
+  $("adName").value=c.name||"";$("adMob").value=c.mobile||"";$("adCountry").value=c.country||"India";
+  $("adState").value=c.state||"";$("adCity").value=c.city||"";$("adPin").value=c.pincode||"";$("adAddr").value=c.address||"";
+  say("adMsg","");
+}
+async function saveAddress(){
+  if(!openOrderId)return;
+  $("adSave").disabled=true;say("adMsg","Saving...");
+  const {error}=await sb.rpc("admin_update_order_details",{
+    p_id:openOrderId,p_name:$("adName").value.trim(),p_mobile:$("adMob").value.trim(),p_country:$("adCountry").value,
+    p_state:$("adState").value,p_city:$("adCity").value.trim(),p_pincode:$("adPin").value.trim(),p_address:$("adAddr").value.trim()
+  });
+  $("adSave").disabled=false;
+  if(error){say("adMsg",/INVALID_DETAILS/.test(error.message)?"Check name, mobile and address. For India, also state, city and a 6-digit pincode.":"Save failed: "+orderErr(error),"err");return}
+  courierLoadedFor=null;
+  await loadOrders();
+  say("adMsg","Address saved.","ok");
+}
+
+// Courier list from Shiprocket for the open order (nothing is booked here).
+let courierLoadedFor=null;
+const RECOMMENDED=`<option value="">Recommended (Shiprocket chooses)</option>`;
+async function loadCouriers(o){
+  const pick=$("ordCourierPick"),hint=$("ordCourierHint");
+  const ready=["Confirmed","Packed"].includes(o.order_status)&&!o.tracking_no;
+  if(!ready){pick.innerHTML=RECOMMENDED;hint.textContent=o.tracking_no?"Shipment already created.":"Courier list appears when the order is Confirmed or Packed.";courierLoadedFor=null;return}
+  if(courierLoadedFor===o.id)return;
+  courierLoadedFor=o.id;
+  pick.innerHTML=`<option value="">Loading couriers...</option>`;hint.textContent="";
+  try{
+    const j=await shipCall({action:"couriers",order_id:o.id});
+    if(openOrderId!==o.id)return;
+    const list=j.couriers||[];
+    pick.innerHTML=RECOMMENDED+list.map(c=>`<option value="${esc(c.courier_id)}">${esc(c.name)} · ₹${esc(c.rate)} · ${esc(c.etd||"?")} days</option>`).join("");
+    hint.textContent=list.length?"Freight is Shiprocket's estimate (excluding GST). Pick one, or keep Recommended.":"No courier found for this pincode. Check the address.";
+  }catch(e){
+    if(openOrderId!==o.id)return;
+    courierLoadedFor=null;pick.innerHTML=RECOMMENDED;hint.textContent=e.message||"Couriers could not load.";
+  }
+}
+async function shipCall(body){
+  const r=await fetch(SB_URL+"/functions/v1/shiprocket-ship",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const err=new Error(SHIP_ERRORS[j.error]||"Shiprocket error ("+(j.error||r.status)+").");err.code=j.error;throw err}
+  return j;
+}
+
+// Website shipping charge (what customers pay at checkout).
+async function loadShipFeeAdmin(){
+  const {data,error}=await sb.rpc("site_shipping_fee");
+  if(!error&&data!=null)$("shipFee").value=data;
+}
+async function saveShipFee(){
+  const v=$("shipFee").value.trim(),n=Number(v);
+  if(v===""||!isFinite(n)||n<0||n>5000){say("shipFeeMsg","Enter an amount between 0 and 5000.","err");return}
+  $("shipFeeSave").disabled=true;say("shipFeeMsg","Saving...");
+  const {error}=await sb.rpc("admin_set_shipping_fee",{p_fee:n});
+  $("shipFeeSave").disabled=false;
+  if(error){say("shipFeeMsg","Save failed: "+orderErr(error),"err");return}
+  say("shipFeeMsg","Saved. Checkout uses the new amount from now on.","ok");
+}
+
 const SHIP_ERRORS={
+  NOT_INDIA_SHIPPING:"Shiprocket ships only within India. Ship this order by hand.",
   NOT_LOGGED_IN:"Please log in again.",
   NOT_ADMIN:"This account is not an admin.",
   NOT_READY:"Set the order to Confirmed or Packed first.",
@@ -366,7 +477,7 @@ async function createShipment(){
   if(!openOrderId)return;
   $("ordShip").disabled=true;say("ordShipMsg","Creating shipment...");
   try{
-    const r=await fetch(SB_URL+"/functions/v1/shiprocket-ship",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify({order_id:openOrderId})});
+    const r=await fetch(SB_URL+"/functions/v1/shiprocket-ship",{method:"POST",headers:{apikey:SB_KEY,Authorization:"Bearer "+token,"content-type":"application/json"},body:JSON.stringify({order_id:openOrderId,courier_id:$("ordCourierPick").value})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok){say("ordShipMsg",SHIP_ERRORS[j.error]||"Shipment could not be created ("+(j.error||r.status)+").","err");$("ordShip").disabled=false;return}
     await loadOrders();
@@ -415,6 +526,7 @@ function boot(){
     show("adminView");
     loadSettings();
     loadOrders();
+    loadShipFeeAdmin();
   }
 
   $("gBtn").onclick=async()=>{
@@ -447,6 +559,9 @@ function boot(){
   $("ordClose").onclick=()=>{openOrderId=null;$("ordDetail").classList.add("hidden")};
   $("ordShipping").oninput=paintOrderTotal;
   $("ordShip").onclick=createShipment;
+  $("adSave").onclick=saveAddress;
+  $("shipFeeSave").onclick=saveShipFee;
+  populateAddressSelects();
 
   sb.auth.onAuthStateChange(()=>check());
   check().catch(e=>{show("loginView");say("loginMsg","Session check failed: "+(e&&e.message||e),"err")});
