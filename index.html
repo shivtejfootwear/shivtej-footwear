@@ -701,6 +701,7 @@ async function placeOrder(){
       <p>Your order number: <b>${esc(res.id)}</b></p>
       <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total)}</div>
       <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
+      <p class="sub">Your bill (PDF) can be downloaded from Track order once the shop confirms your order.</p>
       <button class="btn red" id="trackNow" style="width:100%">Track this order</button>
       <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
     $("fin").onclick=()=>$("ovCart").classList.remove("show");
@@ -881,7 +882,20 @@ function trackHtml(o){
     ${o.tracking_no?`<div>Tracking number: <b>${esc(o.tracking_no)}</b></div>`:""}
     ${o.shipment_status?`<div>Live status: <b>${esc(o.shipment_status)}</b></div>`:""}
     <div>Shipping: ${money(o.shipping)}</div>
-    <div>Total: <b>${money(o.total)}</b></div></div>`;
+    <div>Total: <b>${money(o.total)}</b></div>
+    ${BILL_STATES.includes(st)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
+}
+// Bill (PDF) is ready once the shop has confirmed the order. The server checks the order number and mobile.
+const BILL_STATES=["Confirmed","Packed","Shipped","Delivered"];
+async function downloadBill(id,mob){
+  try{
+    const r=await fetch(SB_URL+"/functions/v1/order-bill",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({order_id:id,mobile:mob})});
+    if(!r.ok){toast(r.status===403?"Bill is available after the shop confirms your order.":"Could not get the bill now. Please try again.");return}
+    const blob=await r.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=id+".pdf";document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){toast("Could not get the bill now. Please try again.")}
 }
 async function checkTrack(){
   const id=$("tId").value.trim(),mob=$("tMob").value.trim();
@@ -892,6 +906,8 @@ async function checkTrack(){
     const rows=await rpc("site_track_order",{p_id:id,p_mobile:mob});
     const o=Array.isArray(rows)?rows[0]:null;
     $("tRes").innerHTML=o?trackHtml(o):`<p class="sub">No order found with this number and mobile.</p>`;
+    const bb=$("tRes").querySelector("[data-bill]");
+    if(bb&&o)bb.onclick=()=>downloadBill(o.id,mob);
   }catch(e){
     toast("Could not check now. Please try again");
   }finally{
