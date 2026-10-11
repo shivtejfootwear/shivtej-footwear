@@ -689,13 +689,75 @@ function drawCheckout(){
     <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
     <textarea class="field" id="cAddr" placeholder="House no., street, area / landmark"></textarea>
     <div id="cSum" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:6px 0 12px;font-size:14px;line-height:1.8"></div>
-    <select class="field" id="cPay"><option value="COD">Cash on Delivery</option><option value="ONLINE">Online Payment (soon)</option></select>
+    <select class="field" id="cPay"><option value="COD">Cash on Delivery</option><option value="ONLINE">Online Payment (UPI / Google Pay / PhonePe)</option></select>
     <button class="btn red" style="width:100%" id="placeBtn">Place Order</button>
     <p class="note">Mobile OTP verification will be added later.</p>`;
   $("cX").onclick=()=>$("ovCart").classList.remove("show");
   $("placeBtn").onclick=placeOrder;
   paintCheckoutSum();
 }
+/* ---------- online payment (Razorpay) ---------- */
+const canPayOnline=o=>{const v=String(o.payment_status||"").toLowerCase();return v.includes("pending")&&!v.includes("cod")&&!v.includes("paid")};
+function loadRazorpay(){
+  return new Promise((resolve,reject)=>{
+    if(window.Razorpay)return resolve();
+    const s=document.createElement("script");
+    s.src="https://checkout.razorpay.com/v1/checkout.js";
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error("RZ_LOAD"));
+    document.head.appendChild(s);
+  });
+}
+// Opens the Razorpay popup for one order. Resolves "paid", "closed" or "failed".
+async function startPayment(id,mob){
+  const r=await fetch(SB_URL+"/functions/v1/create-payment",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({order_id:id,mobile:mob})});
+  const j=await r.json().catch(()=>null);
+  if(!r.ok||!j||!j.razorpay_order_id)throw new Error((j&&j.error)||("HTTP "+r.status));
+  await loadRazorpay();
+  return new Promise(resolve=>{
+    const rz=new window.Razorpay({
+      key:j.key_id,amount:j.amount,currency:j.currency||"INR",name:j.name||"Shivtej Footwear",
+      description:"Order "+j.order_id,order_id:j.razorpay_order_id,
+      prefill:{name:j.customer_name||"",contact:j.mobile||mob},
+      theme:{color:"#E30613"},
+      handler:()=>resolve("paid"),
+      modal:{ondismiss:()=>resolve("closed")}
+    });
+    rz.on("payment.failed",()=>resolve("failed"));
+    rz.open();
+  });
+}
+// The webhook marks the order Paid a few seconds after the payment, so check the status a few times.
+async function waitPaid(id,mob){
+  for(let i=0;i<20;i++){
+    await new Promise(r=>setTimeout(r,3000));
+    try{
+      const rows=await rpc("site_track_order",{p_id:id,p_mobile:mob});
+      const o=Array.isArray(rows)?rows[0]:null;
+      if(o&&isPaidStatus(o.payment_status))return true;
+    }catch(e){}
+  }
+  return false;
+}
+async function runPayment(id,mob,btn){
+  if(btn){btn.disabled=true;btn.textContent="Opening payment...";}
+  try{
+    const result=await startPayment(id,mob);
+    if(result==="paid"){
+      toast("Payment received. Confirming your order...");
+      const ok=await waitPaid(id,mob);
+      toast(ok?"Payment received. Thank you!":"Payment received. Your order will update shortly.");
+      if($("ovTrack").classList.contains("show")){$("tId").value=id;$("tMob").value=mob;checkTrack()}
+    }else{
+      toast("Payment not completed. You can pay later from Track order.");
+    }
+  }catch(e){
+    toast("Could not open payment now. Please try again.");
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="Pay now";}
+  }
+}
+
 async function placeOrder(){
   const name=$("cName").value.trim(),mobile=$("cMob").value.trim(),address=$("cAddr").value.trim(),payment=$("cPay").value;
   const country=$("cCountry").value,state=$("cState").value,city=$("cCity").value.trim(),pincode=$("cPin").value.trim();
@@ -720,10 +782,16 @@ async function placeOrder(){
       <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total)}</div>
       <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
       <p class="sub">Your bill (PDF) can be downloaded from Track order as soon as your payment is received.</p>
-      <button class="btn red" id="trackNow" style="width:100%">Track this order</button>
+      ${payment==="ONLINE"?`<button class="btn red" id="payNow" style="width:100%;margin-bottom:8px">Pay now</button>`:""}
+      <button class="btn ${payment==="ONLINE"?"dark":"red"}" id="trackNow" style="width:100%">Track this order</button>
       <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
     $("fin").onclick=()=>$("ovCart").classList.remove("show");
     $("trackNow").onclick=()=>{$("ovCart").classList.remove("show");openTrack()};
+    if(payment==="ONLINE"){
+      const pn=$("payNow");
+      pn.onclick=()=>runPayment(res.id,mobile,pn);
+      runPayment(res.id,mobile,pn);
+    }
     loadProducts();
   }catch(e){
     btn.disabled=false;btn.textContent="Place Order";
@@ -981,6 +1049,7 @@ function trackHtml(o){
     ${o.shipment_status?`<div>Live status: <b>${esc(o.shipment_status)}</b></div>`:""}
     <div>Shipping: ${money(o.shipping)}</div>
     <div>Total: <b>${money(o.total)}</b></div>
+    ${canPayOnline(o)?`<button class="btn red" style="width:100%;margin-top:10px" data-pay="1">Pay now</button>`:""}
     ${BILL_STATES.includes(st)&&isPaidStatus(o.payment_status)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
 }
 // Bill (PDF) is ready once the shop has confirmed the order. The server checks the order number and mobile.
@@ -1006,6 +1075,8 @@ async function checkTrack(){
     $("tRes").innerHTML=o?trackHtml(o):`<p class="sub">No order found with this number and mobile.</p>`;
     const bb=$("tRes").querySelector("[data-bill]");
     if(bb&&o)bb.onclick=()=>downloadBill(o.id,mob);
+    const pb=$("tRes").querySelector("[data-pay]");
+    if(pb&&o)pb.onclick=()=>runPayment(o.id,mob,pb);
   }catch(e){
     toast("Could not check now. Please try again");
   }finally{
