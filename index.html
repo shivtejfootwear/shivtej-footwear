@@ -24,8 +24,11 @@ button{cursor:pointer}
 .menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 10px;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink)}
 .menu button:hover{background:var(--soft);color:var(--red)}
 .icons{display:flex;gap:10px;align-items:center}
-.ico{border:0;background:none;padding:8px;border-radius:50%;font-size:17px;line-height:1;transition:background .2s}
+.ico{border:0;background:none;padding:4px 8px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink);transition:background .2s}
 .ico:hover{background:var(--soft)}
+.ico-i{font-size:26px;line-height:1}
+.ico-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;line-height:1.1;white-space:nowrap}
+@media (max-width:699px){.ico{padding:2px 5px}.ico-i{font-size:22px}.ico-t{font-size:10px}}
 .bar{display:flex;align-items:center;gap:18px;padding-top:14px;padding-bottom:14px}
 .logo{font-weight:900;font-size:20px;letter-spacing:.4px;color:var(--red);white-space:nowrap}
 .nav{display:flex;gap:18px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.3px}
@@ -325,7 +328,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
-    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none">📦</button><button class="ico" title="Login" id="loginBtn">👤</button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
+    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
@@ -1056,14 +1059,20 @@ function trackHtml(o){
     <div>Shipping: ${money(o.shipping)}</div>
     <div>Total: <b>${money(o.total)}</b></div>
     ${canPayOnline(o)?`<button class="btn red" style="width:100%;margin-top:10px" data-pay="1">Pay now</button>`:""}
-    ${BILL_STATES.includes(st)&&isPaidStatus(o.payment_status)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
+    ${BILL_STATES.includes(st)&&isPaidStatus(o.payment_status)&&billAllowed(o)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
 }
 // Bill (PDF) is ready once the shop has confirmed the order. The server checks the order number and mobile.
 const BILL_STATES=["Confirmed","Packed","Shipped","Delivered"];
+// The bill is made on request and is only available for 15 days from the order date.
+const BILL_DAYS=15;
+const billAllowed=o=>{const t=new Date(o.created_at).getTime();return isNaN(t)||Date.now()-t<=BILL_DAYS*864e5};
 async function downloadBill(id,mob){
   try{
     const r=await fetch(SB_URL+"/functions/v1/order-bill",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({order_id:id,mobile:mob})});
-    if(!r.ok){toast(r.status===403?"Bill is available once payment is received.":"Could not get the bill now. Please try again.");return}
+    if(!r.ok){
+      let code="";try{code=(await r.json()).error||""}catch(e){}
+      toast(code==="EXPIRED"?"This bill is only available for 15 days from the order date.":r.status===403?"Bill is available once payment is received.":"Could not get the bill now. Please try again.");
+      return}
     const blob=await r.blob();
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download=id+".pdf";document.body.appendChild(a);a.click();a.remove();
