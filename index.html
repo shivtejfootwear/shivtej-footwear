@@ -203,6 +203,12 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .catSec{margin-top:40px}
 .catSec .sec{margin:0 0 14px}
 .catSec .more{font-size:13px;font-weight:600;color:var(--red);background:none;border:0;cursor:pointer}
+.sizeTbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+.sizeTbl th,.sizeTbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
+.cList>div{padding:12px 0;border-bottom:1px solid var(--line)}
+.cList b{display:block;font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.cList a,.cList span{font-size:15px;color:var(--ink)}
+.infoSteps{padding-left:20px;line-height:1.6;font-size:14px}
 .film{margin-top:56px}
 .filmBox{position:relative;aspect-ratio:16/9;border-radius:24px;overflow:hidden;background:radial-gradient(120% 90% at 30% 0%,#2a2a2a,#0b0b0b);display:flex;align-items:center;justify-content:center;color:#fff}
 .filmBox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -416,6 +422,8 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 <div class="ov" id="ovCart"><div class="panel" id="cPanel"></div></div>
 <!-- order tracking -->
 <div class="ov" id="ovTrack"><div class="panel" id="tPanel"></div></div>
+<!-- help: size guide and contact -->
+<div class="ov" id="ovInfo"><div class="panel" id="iPanel"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -711,7 +719,7 @@ async function placeOrder(){
       <p>Your order number: <b>${esc(res.id)}</b></p>
       <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total)}</div>
       <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
-      <p class="sub">Your bill (PDF) can be downloaded from Track order once the shop confirms your order.</p>
+      <p class="sub">Your bill (PDF) can be downloaded from Track order as soon as your payment is received.</p>
       <button class="btn red" id="trackNow" style="width:100%">Track this order</button>
       <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
     $("fin").onclick=()=>$("ovCart").classList.remove("show");
@@ -857,12 +865,12 @@ function miniCard(p){
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[
-  {label:"Kids Boy",match:"Kids",img:"cat/kids-boy.png"},
-  {label:"Kids Girl",match:"Kids",img:"cat/kids-girl.png"},
-  {label:"Gents",match:"Men",img:"cat/gents.png"},
-  {label:"Ladies",match:"Ladies",img:"cat/ladies.png"},
-  {label:"Senior Men",match:"Senior Men",img:"cat/senior-men.png"},
-  {label:"Senior Women",match:"Senior Women",img:"cat/senior-women.png"},
+  {label:"Kids Boy",match:"Kids",section:"Kids",img:"cat/kids-boy.png"},
+  {label:"Kids Girl",match:"Kids",section:"Kids",img:"cat/kids-girl.png"},
+  {label:"Men",match:"Men",section:"Men",img:"cat/gents.png"},
+  {label:"Women",match:"Ladies",section:"Women",img:"cat/ladies.png"},
+  {label:"Senior Men",match:"Senior Men",section:"Senior Men",img:"cat/senior-men.png"},
+  {label:"Senior Women",match:"Senior Women",section:"Senior Women",img:"cat/senior-women.png"},
 ];
 const catKey=s=>"cs-"+String(s).toLowerCase().replace(/\s+/g,"-");
 function renderCatLogos(){
@@ -873,7 +881,7 @@ function renderCatSections(){
   $("catSections").innerHTML=LOGO_CATS.filter(c=>{if(seen.has(c.match))return false;seen.add(c.match);return true}).map(c=>{
     const list=products.filter(p=>p.category===c.match).slice().sort((a,b)=>Number(b.newItem)-Number(a.newItem)).slice(0,6);
     return `<div class="catSec" id="${catKey(c.match)}">
-      <div class="sec"><h3>${esc(c.match)}</h3><button class="more" data-go="${esc(c.match)}">View all →</button></div>
+      <div class="sec"><h3>${esc(c.section)}</h3><button class="more" data-go="${esc(c.match)}">View all →</button></div>
       <div class="rail">${list.length?list.map(miniCard).join(""):'<div class="empty" style="width:100%">No products in this category yet.</div>'}</div>
     </div>`;
   }).join("");
@@ -902,6 +910,65 @@ function openTrack(){
   $("tBtn").onclick=checkTrack;
   $("ovTrack").classList.add("show");
 }
+/* ---------- help: order status, size guide, contact ---------- */
+const CONTACT={address:"Bajaj Finance, Opposite Site, Akluj 413101",phone:"8898900888",whatsapp:"918898900888",email:"shivtejfootwear@gmail.com"};
+function closeInfo(){$("ovInfo").classList.remove("show")}
+function openInfo(html){
+  $("iPanel").innerHTML=`<button class="x" id="iX">×</button>${html}`;
+  $("iX").onclick=closeInfo;
+  $("ovInfo").classList.add("show");
+}
+// Foot sketch: two feet (a pair) above a 0-24 cm ruler, 12 px per cm.
+function sizeSvg(){
+  let ticks="";
+  for(let i=0;i<=24;i++){
+    const x=20+i*12, h=i%2?5:10;
+    ticks+=`<line x1="${x}" y1="205" x2="${x}" y2="${205+h}" stroke="#111"/>`;
+    if(i%2===0)ticks+=`<text x="${x}" y="228" font-size="10" text-anchor="middle" fill="#111">${i}</text>`;
+  }
+  const foot="M0,50 C0,22 30,6 90,8 C150,10 200,6 250,14 C285,20 288,36 286,50 C284,64 270,74 240,76 C190,80 130,80 80,78 C30,76 0,74 0,50 Z";
+  return `<svg viewBox="0 0 330 240" width="100%" role="img" aria-label="How to measure foot length in cm">
+    <g transform="translate(20,10)"><path d="${foot}" fill="#f6f6f7" stroke="#111" stroke-width="1.5"/></g>
+    <g transform="translate(20,95)"><path d="${foot}" fill="#f6f6f7" stroke="#111" stroke-width="1.5"/></g>
+    <line x1="20" y1="10" x2="20" y2="205" stroke="#E30613" stroke-dasharray="4 3"/>
+    <line x1="308" y1="10" x2="308" y2="205" stroke="#E30613" stroke-dasharray="4 3"/>
+    <line x1="20" y1="205" x2="308" y2="205" stroke="#111" stroke-width="1.5"/>
+    ${ticks}
+    <text x="20" y="238" font-size="10" fill="#6b7280">Heel</text>
+    <text x="308" y="238" font-size="10" text-anchor="end" fill="#6b7280">Longest toe (cm)</text>
+  </svg>`;
+}
+function openSizeGuide(){
+  const rows=[["6","23.5 – 24.4"],["7","24.5 – 25.1"],["8","25.2 – 25.8"],["9","25.9 – 26.5"],["10","26.6 – 27.2"],["11","27.3 – 27.9"]];
+  openInfo(`<h3>Size guide</h3>
+    <p class="sub">Ghar par 2 minute mein apna size naap lo.</p>
+    ${sizeSvg()}
+    <ol class="infoSteps">
+      <li>A4 kagaz zameen par rakho, uspe deewaar ke paas pair khada karo.</li>
+      <li>Heel deewaar ko chhoo'e. Sabse aage wali ungli ka sira note karo.</li>
+      <li>Heel se sabse lambi ungli tak ruler se seedha cm mein naapo. Dono pair naapo, jo bada ho usi se size lo.</li>
+      <li>Neeche chart mein apna size dekho.</li>
+    </ol>
+    <table class="sizeTbl"><tr><th>Size</th><th>Foot length (cm)</th></tr>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("")}</table>
+    <p class="sub" style="margin-top:14px">Ye chart approximate hai. Fit mein thoda farak ho sakta hai, shak ho to shop par aakar naap lo.</p>`);
+}
+function openContact(){
+  openInfo(`<h3>Contact</h3>
+    <p class="sub">Shivtej Footwear</p>
+    <div class="cList">
+      <div><b>Address</b><span>${esc(CONTACT.address)}</span></div>
+      <div><b>Phone</b><a href="tel:+91${CONTACT.phone}">+91 ${CONTACT.phone}</a></div>
+      <div><b>WhatsApp</b><a href="https://wa.me/${CONTACT.whatsapp}" target="_blank" rel="noopener">Chat on WhatsApp</a></div>
+      <div><b>Email</b><a href="mailto:${esc(CONTACT.email)}">${esc(CONTACT.email)}</a></div>
+    </div>`);
+}
+$("helpOrder").onclick=openTrack;
+$("helpSize").onclick=openSizeGuide;
+$("helpCont").onclick=openContact;
+$("ovInfo").addEventListener("click",ev=>{if(ev.target.id==="ovInfo")closeInfo()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInfo()});
+// The bill is for online paid orders only (payment_status says "Paid").
+const isPaidStatus=s=>{const v=String(s||"").toLowerCase();return v.includes("paid")&&!v.includes("unpaid")&&!v.includes("pending")};
 function trackHtml(o){
   const st=o.order_status||"New";
   if(st==="Cancelled")return `<div class="tres"><b>Order ${esc(o.id)}: Cancelled</b></div>`;
@@ -914,14 +981,14 @@ function trackHtml(o){
     ${o.shipment_status?`<div>Live status: <b>${esc(o.shipment_status)}</b></div>`:""}
     <div>Shipping: ${money(o.shipping)}</div>
     <div>Total: <b>${money(o.total)}</b></div>
-    ${BILL_STATES.includes(st)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
+    ${BILL_STATES.includes(st)&&isPaidStatus(o.payment_status)?`<button class="btn line" style="width:100%;margin-top:10px" data-bill="1">Download bill (PDF)</button>`:""}</div>`;
 }
 // Bill (PDF) is ready once the shop has confirmed the order. The server checks the order number and mobile.
 const BILL_STATES=["Confirmed","Packed","Shipped","Delivered"];
 async function downloadBill(id,mob){
   try{
     const r=await fetch(SB_URL+"/functions/v1/order-bill",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({order_id:id,mobile:mob})});
-    if(!r.ok){toast(r.status===403?"Bill is available after the shop confirms your order.":"Could not get the bill now. Please try again.");return}
+    if(!r.ok){toast(r.status===403?"Bill is available once payment is received.":"Could not get the bill now. Please try again.");return}
     const blob=await r.blob();
     const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download=id+".pdf";document.body.appendChild(a);a.click();a.remove();
