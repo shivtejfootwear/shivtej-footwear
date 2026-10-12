@@ -329,7 +329,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
-    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button><button class="cartBtn" id="cartOpen">Cart<b id="cartN">0</b></button></div>
+    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
@@ -439,9 +439,7 @@ const money=n=>"₹"+Number(n||0).toLocaleString("en-IN");
 
 let products=[];
 const S={cat:"All",brand:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
-let cart=[];
-try{cart=JSON.parse(localStorage.getItem("sv5_cart")||"[]")||[]}catch(e){cart=[]}
-const saveCart=()=>{try{localStorage.setItem("sv5_cart",JSON.stringify(cart))}catch(e){}};
+let buy=null; // the one item the customer is buying now (no cart)
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2200)}
 
@@ -558,7 +556,7 @@ function cardHtml(p,i){
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
       <div class="acts">
         <button class="btn line" data-view="${esc(p.id)}">View</button>
-        <button class="btn dark" data-view="${esc(p.id)}" ${out?"disabled":""}>Cart</button>
+        <button class="btn dark" data-view="${esc(p.id)}" ${out?"disabled":""}>Buy</button>
       </div>
     </div></article>`;
 }
@@ -578,7 +576,6 @@ function render(){
   $("grid").innerHTML=list.length?list.map(cardHtml).join(""):'<div class="empty">No products match this filter.</div>';
   hydrate();
   revealCards();
-  renderCartCount();
   document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c.dataset.cat===S.cat));
 }
 function hydrate(){
@@ -618,49 +615,28 @@ function drawProduct(){
     <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(s.size)}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
     <div class="lab">Quantity</div>
     <div class="qty"><button id="qM">−</button><span id="qV">${pQty}</span><button id="qP">+</button></div>
-    <div class="row"><button class="btn red" style="flex:1" id="addBtn" ${pSize?"":"disabled"}>${pSize?"Add to cart":"Select a size first"}</button></div>
+    <div class="row"><button class="btn red" style="flex:1" id="addBtn" ${pSize?"":"disabled"}>${pSize?"Buy directly":"Select a size first"}</button></div>
     <p class="note">${avail!=null&&pSize?"Only "+avail+" pcs available in this size.":""}</p>`;
   $("pX").onclick=()=>$("ovProduct").classList.remove("show");
   const ph=$("pPanel").querySelector("[data-psrc]");if(ph&&ph.dataset.psrc){photoUrl(ph.dataset.psrc).then(url=>{if(!url||!ph.isConnected)return;const im=new Image();im.alt="";im.onload=()=>{ph.querySelector(".ph")?.remove();ph.prepend(im)};im.src=url}).catch(()=>{})}
   $("qM").onclick=()=>{pQty=Math.max(1,pQty-1);drawProduct()};
   $("qP").onclick=()=>{const max=Math.min(10,avail??10);pQty=Math.min(max,pQty+1);drawProduct()};
-  $("addBtn").onclick=addToCart;
+  $("addBtn").onclick=buyNow;
   $("pPanel").querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{pColour=b.dataset.col;pSize="";pQty=1;drawProduct()});
   $("pPanel").querySelectorAll("[data-sz]").forEach(b=>b.onclick=()=>{pSize=b.dataset.sz;pQty=1;drawProduct()});
 }
-function addToCart(){
+function buyNow(){
   const v=curVariant();const row=v.sizes.find(s=>s.size===pSize);
   if(!row){toast("Select a size");return}
-  const inCart=cart.filter(x=>x.pid===P.id&&x.colour===pColour&&x.size===pSize).reduce((n,x)=>n+x.qty,0);
-  if(pQty+inCart>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
-  const ex=cart.find(x=>x.pid===P.id&&x.colour===pColour&&x.size===pSize);
-  if(ex)ex.qty=Math.min(10,ex.qty+pQty);else cart.push({pid:P.id,colour:pColour,size:pSize,qty:pQty});
-  saveCart();renderCartCount();
+  if(pQty>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
+  buy={pid:P.id,colour:pColour,size:pSize,qty:pQty};
   $("ovProduct").classList.remove("show");
-  toast("Added to cart");
+  drawCheckout();$("ovCart").classList.add("show");
 }
 
 /* ---------- cart and checkout ---------- */
-function renderCartCount(){$("cartN").textContent=cart.reduce((n,x)=>n+x.qty,0)}
-function cartLines(){return cart.map((x,i)=>({...x,i,p:products.find(p=>p.id===x.pid)})).filter(x=>x.p)}
-function openCart(){drawCart();$("ovCart").classList.add("show")}
-function drawCart(){
-  const lines=cartLines();
-  const total=lines.reduce((n,x)=>n+x.p.price*x.qty,0);
-  $("cPanel").innerHTML=`<button class="x" id="cX">×</button><h3>Your Cart</h3>
-    ${lines.length?lines.map(x=>`<div class="cline"><img src="" alt="" data-cimg="${esc(x.p.variants[0]?.media[0]||"")}">
-      <div class="meta"><b>${esc(x.p.name)}</b>Colour: ${esc(x.colour)} · Size: ${esc(x.size)}<br>${money(x.p.price)} × ${x.qty}
-      <div><button class="rm" data-rm="${x.i}">Remove</button></div></div></div>`).join("")
-      +`<div class="total"><span>Items total</span><span>${money(total)}</span></div>
-      <div class="total"><span>Shipping</span><span>${money(SHIP_FEE)}</span></div>
-      <div class="total"><span>Total payable</span><span>${money(total+SHIP_FEE)}</span></div>
-      <button class="btn red" style="width:100%" id="goCheckout">Checkout</button>`
-      :'<p class="sub">Your cart is empty.</p>'}`;
-  $("cX").onclick=()=>$("ovCart").classList.remove("show");
-  $("cPanel").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{cart.splice(+b.dataset.rm,1);saveCart();renderCartCount();drawCart()});
-  const go=$("goCheckout");if(go)go.onclick=drawCheckout;
-  $("cPanel").querySelectorAll("[data-cimg]").forEach(async img=>{const u=await photoUrl(img.dataset.cimg);if(u)img.src=u});
-}
+/* ---------- checkout (buy one item directly) ---------- */
+function buyLines(){if(!buy)return [];const p=products.find(x=>x.id===buy.pid);return p?[{...buy,p}]:[]}
 // Shipping charge for website orders. The server sets the real amount; this is only what the customer sees.
 let SHIP_FEE=80;
 async function loadShipFee(){
@@ -676,13 +652,13 @@ function billHtml(rows,sub,ship,total){
     <div class="brow tot"><span>Total payable</span><b>${money(total)}</b></div></div>`;
 }
 function paintCheckoutSum(){
-  const rows=cartLines().map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const rows=buyLines().map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
   const sub=rows.reduce((n,r)=>n+r.amount,0);
   $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,SHIP_FEE,sub+SHIP_FEE);
 }
 function drawCheckout(){
   $("cPanel").innerHTML=`<button class="x" id="cX">×</button><h3>Order Details</h3>
-    <p class="sub">Stock will be updated automatically after you place the order.</p>
+    <p class="sub">Stock is updated only after your payment is received.</p>
     <input class="field" id="cName" placeholder="Full name">
     <input class="field" id="cMob" inputmode="numeric" maxlength="10" placeholder="10 digit mobile number">
     <label class="note" style="display:block;margin:4px 0">Country</label>
@@ -777,14 +753,14 @@ async function placeOrder(){
   if(!state){toast("Please select your state");return}
   if(!city){toast("Please enter your city");return}
   if(!/^\d{6}$/.test(pincode)){toast("Enter a valid 6-digit pincode");return}
-  const lines=cartLines();
-  if(!lines.length){toast("Your cart is empty");return}
+  const lines=buyLines();
+  if(!lines.length){toast("Please select a size first");return}
   const btn=$("placeBtn");btn.disabled=true;btn.textContent="Placing order...";
   const items=lines.map(x=>({product_id:x.pid,colour:x.colour,size:String(x.size),qty:Number(x.qty)}));
   try{
     const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items}});
     if(!res||!res.ok)throw new Error("FAILED");
-    cart=[];saveCart();renderCartCount();
+    buy=null;
     rememberOrder(res.id,mobile);showTrackIcon();
     const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
     $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
@@ -806,7 +782,7 @@ async function placeOrder(){
   }catch(e){
     btn.disabled=false;btn.textContent="Place Order";
     const m=String(e.message||"");
-    if(m.includes("STOCK")){toast("Stock has changed. Please check your cart again");loadProducts()}
+    if(m.includes("STOCK")){toast("Stock has changed. Please select the item again");loadProducts()}
     else if(m.includes("RATE_LIMIT"))toast("Too many orders. Please try again shortly");
     else if(m.includes("INVALID"))toast("Please check your details");
     else toast("Order could not be placed. Check your internet and try again");
@@ -834,7 +810,6 @@ document.addEventListener("click",e=>{
   const view=e.target.closest("[data-view]");
   if(view){openProduct(view.dataset.view);return}
 });
-$("cartOpen").onclick=openCart;
 ["ovProduct","ovCart"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
 $("trackOpen").onclick=openTrack;
 $("ovTrack").addEventListener("click",ev=>{if(ev.target.id==="ovTrack")$("ovTrack").classList.remove("show")});
