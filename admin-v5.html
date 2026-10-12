@@ -218,13 +218,25 @@ textarea{min-height:70px;resize:vertical}
       <input type="text" id="bandTitle">
       <label class="f" for="bandText">Short text</label>
       <textarea id="bandText"></textarea>
-      <label class="f">Band photo</label>
+      <label class="f">Band photo or video</label>
       <div class="row">
-        <input type="file" id="bandFile" accept="image/*">
+        <input type="file" id="bandFile" accept="image/*,video/mp4,video/webm">
         <button class="btn line" id="bandRemove">Remove</button>
       </div>
       <div class="preview" id="bandPrev">No photo</div>
       <div class="msg" id="bandMsg"></div>
+    </div>
+
+    <!-- 4b brand film (video box above the shop) -->
+    <div class="card">
+      <h2><span class="sec-no">4b</span>Brand film (video above the shop)</h2>
+      <div class="sub" style="margin-bottom:8px">Short video (.mp4). If empty, the box says "Brand film coming soon". Max 50 MB.</div>
+      <div class="row">
+        <input type="file" id="filmFile" accept="video/mp4,video/webm">
+        <button class="btn line" id="filmRemove">Remove</button>
+      </div>
+      <div class="preview" id="filmPrev">No video</div>
+      <div class="msg" id="filmMsg"></div>
     </div>
 
     <!-- 5 links -->
@@ -283,6 +295,7 @@ function fillForm(){
   $("whatsapp").value=cfg.whatsapp??"";
   paintPreview("heroPrev",cfg.heroImage);
   paintPreview("bandPrev",cfg.bandImage);
+  paintPreview("filmPrev",cfg.filmVideo);
 }
 function paintPreview(id,url){
   const el=$(id);el.innerHTML="";
@@ -313,6 +326,7 @@ function collect(){
     bandTitle:$("bandTitle").value.trim(),
     bandText:$("bandText").value.trim(),
     bandImage:cfg.bandImage||"",
+    filmVideo:cfg.filmVideo||"",
     instagram:$("instagram").value.trim(),
     facebook:$("facebook").value.trim(),
     whatsapp:$("whatsapp").value.replace(/[^0-9]/g,"")
@@ -544,6 +558,8 @@ function boot(){
   $("heroArtReset").onclick=()=>{cfg.heroArtImage="";paintPreview("heroArtPrev","");say("heroArtMsg","Default photo will be used. Press Save.","ok")};
   $("heroRemove").onclick=()=>{cfg.heroImage="";paintPreview("heroPrev","");say("heroMsg","Photo removed. Press Save.","ok")};
   $("bandRemove").onclick=()=>{cfg.bandImage="";paintPreview("bandPrev","");say("bandMsg","Photo removed. Press Save.","ok")};
+  $("filmFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"film","filmMsg");if(u){cfg.filmVideo=u;paintPreview("filmPrev",u)}};
+  $("filmRemove").onclick=()=>{cfg.filmVideo="";paintPreview("filmPrev","");say("filmMsg","Video removed. Press Save.","ok")};
 
   $("saveBtn").onclick=async()=>{
     $("saveBtn").disabled=true;say("saveMsg","Saving...");

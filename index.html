@@ -221,6 +221,7 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .filmCap{position:absolute;left:22px;bottom:18px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;opacity:.7}
 .band{position:relative;margin-top:56px;border-radius:24px;overflow:hidden;min-height:360px;color:#fff;display:flex;align-items:flex-end;background:linear-gradient(110deg,#0b0b0b,#2a2a2a 60%,#7d0a10)}
 .band .bg{position:absolute;left:0;right:0;top:-10%;height:120%;background-size:cover;background-position:center;will-change:transform}
+.band .bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .band .shade{position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0) 60%)}
 .band .txt{position:relative;padding:34px;max-width:520px}
 .band h3{font-size:clamp(24px,3.4vw,40px);font-weight:300;letter-spacing:-.02em;margin:0 0 10px;line-height:1.1}
@@ -986,17 +987,24 @@ function applySocial(){
   const w=$("waFloat");
   if(CONFIG.whatsapp){w.href="https://wa.me/"+encodeURIComponent(CONFIG.whatsapp);w.classList.add("show")}else w.classList.remove("show");
 }
-const fv=$("filmVid");
-if(CONFIG.filmVideo){
-  fv.src=CONFIG.filmVideo;if(CONFIG.filmPoster)fv.poster=CONFIG.filmPoster;
-  $("filmPlay").onclick=()=>{fv.play()};
-  fv.onplay=()=>{$("filmPlay").style.display="none"};
-  fv.onpause=()=>{$("filmPlay").style.display=""};
-}else{fv.style.display="none";$("filmCap").textContent="Brand film coming soon"}
 applySettings();
 
 /* ---- site settings (edited from the admin page, stored in Supabase) ---- */
+/* brand film box: the video set in the admin (filmVideo), or the "coming soon" text */
+function applyFilm(){
+  const fv=$("filmVid"),pl=$("filmPlay");
+  if(CONFIG.filmVideo){
+    if(fv.getAttribute("src")!==CONFIG.filmVideo)fv.src=CONFIG.filmVideo;
+    if(CONFIG.filmPoster)fv.poster=CONFIG.filmPoster;
+    fv.style.display="";
+    $("filmCap").textContent="Brand film";
+    pl.onclick=()=>{fv.play()};
+    fv.onplay=()=>{pl.style.display="none"};
+    fv.onpause=()=>{pl.style.display=""};
+  }else{fv.style.display="none";$("filmCap").textContent="Brand film coming soon"}
+}
 function applySettings(){
+  applyFilm();
   const lines=String(CONFIG.heroTitle||"").split("|").map(x=>x.trim()).filter(Boolean);
   $("heroTitle").innerHTML=(lines.length?lines:["New stock.","New style."]).map(l=>`<span class="ln">${esc(l)}</span>`).join("");
   $("heroText").textContent=CONFIG.heroText||"";
@@ -1010,7 +1018,13 @@ function applySettings(){
     }else{hb.style.backgroundImage="url('"+CONFIG.heroImage.replace(/'/g,"%27")+"')"}
     hb.classList.add("on");
   }
-  if(CONFIG.bandImage)$("bandBg").style.backgroundImage="url('"+CONFIG.bandImage.replace(/'/g,"%27")+"')";
+  if(CONFIG.bandImage){
+    const bb=$("bandBg");bb.innerHTML="";
+    if(/\.(mp4|webm)(\?|$)/i.test(CONFIG.bandImage)){
+      bb.style.backgroundImage="";
+      const v=document.createElement("video");v.src=CONFIG.bandImage;v.autoplay=true;v.muted=true;v.loop=true;v.setAttribute("playsinline","");bb.appendChild(v);
+    }else{bb.style.backgroundImage="url('"+CONFIG.bandImage.replace(/'/g,"%27")+"')"}
+  }
   $("bandTitle").textContent=CONFIG.bandTitle||"";
   $("bandText").textContent=CONFIG.bandText||"";
   applySocial();
