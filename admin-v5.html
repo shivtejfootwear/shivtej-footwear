@@ -533,6 +533,8 @@ function boot(){
     const {data:{session}}=await sb.auth.getSession();
     if(!session){show("loginView");return}
     token=session.access_token;
+    // remove the login token from the address bar once it is used
+    if(location.hash.includes("access_token"))history.replaceState(null,"",location.pathname+location.search);
     const {data,error}=await sb.from("admin_users").select("id,role,active").eq("id",session.user.id).maybeSingle();
     if(error){show("deniedView");say("setupMsg","Admin check failed: "+error.message,"err");return}
     if(!data||data.active===false){show("deniedView");return}
@@ -587,7 +589,7 @@ function boot(){
       show("loginView");
       say("loginMsg","Session check is taking too long. Try logging in, or reload the page.","err");
     }
-  },4000);
+  },15000);
 }
 boot();
 </script>

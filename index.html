@@ -35,9 +35,16 @@ button{cursor:pointer}
 .nav{display:flex;gap:18px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.3px}
 .nav button{background:none;border:0;padding:6px 0;color:var(--ink);border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
 .nav button:hover,.nav button.on{color:var(--red);border-color:var(--red)}
-.search{margin-left:auto;flex:0 1 320px}
+.search{margin-left:auto;flex:0 1 320px;position:relative}
 .search input{width:100%;padding:10px 16px;border:1px solid var(--line);border-radius:999px;outline:none;transition:border-color .2s,box-shadow .2s}
 .search input:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(17,17,17,.08)}
+/* search suggestions: brands by letter, brands / articles / colours / products by word */
+.sg{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.12);max-height:min(60vh,420px);overflow-y:auto;padding:6px 0;z-index:40;text-align:left}
+.sg.show{display:block}
+.sgHead{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--mute);padding:10px 16px 4px}
+.sgItem{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;border:0;background:none;padding:9px 16px;text-align:left;font-size:14px;color:var(--ink);cursor:pointer}
+.sgItem:hover,.sgItem:focus{background:var(--soft);outline:none}
+.sgItem span{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .cartBtn{border:0;background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-weight:700;white-space:nowrap;transition:transform .15s}
 .cartBtn:hover{transform:translateY(-1px)}
 .cartBtn b{display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:999px;background:var(--red);font-size:12px}
@@ -356,7 +363,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Ladies">Ladies</button><div class="menu"><button data-go="Ladies">All Ladies</button><button data-go="NEW">New Ladies</button></div></div>
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
-    <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
+    <div class="search"><input id="q" placeholder="Search name, article, brand, colour" autocomplete="off"><div class="sg" id="sg"></div></div>
     <div class="icons"><button class="ico" title="Cart" aria-label="Cart" id="cartOpen" style="position:relative"><span class="ico-i">🛍️</span><span class="ico-t">Cart</span><span id="cartN" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:800;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px"></span></button><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
@@ -595,14 +602,15 @@ const allBrands=()=>[...new Set(products.map(p=>p.brand).filter(Boolean))].sort(
 const allCats=()=>[...new Set(products.map(p=>p.category).filter(Boolean))].sort();
 
 function match(p){
-  const q=S.q.trim().toLowerCase();
+  // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
+  const words=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   if(S.cat!=="All"&&S.cat!=="NEW"&&p.category!==S.cat)return false;
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.priceMin!=null&&(p.price<S.priceMin||p.price>S.priceMax))return false;
   if(S.colour&&!p.variants.some(v=>v.colour===S.colour))return false;
   if(S.size&&!p.variants.some(v=>v.sizes.some(s=>s.size===S.size&&s.qty!==0)))return false;
-  if(q){const t=[p.name,p.article,p.brand,p.category,...p.variants.map(v=>v.colour)].join(" ").toLowerCase();if(!t.includes(q))return false}
+  if(words.length){const t=[p.name,p.article,p.brand,p.category,...p.variants.map(v=>v.colour)].join(" ").toLowerCase();if(!words.every(w=>t.includes(w)))return false}
   return true;
 }
 
@@ -930,7 +938,48 @@ setInterval(()=>{const changed=pruneCart();if(changed)renderCartCount();if($("ov
 renderCartCount();
 $("ovTrack").addEventListener("click",ev=>{if(ev.target.id==="ovTrack")$("ovTrack").classList.remove("show")});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ovTrack").classList.remove("show")});
-$("q").oninput=e=>{S.q=e.target.value;render()};
+/* ---------- search suggestions ---------- */
+// One letter: every brand that starts with that letter.
+// A word: matching brands, articles, colours and products. Tap one to search for it.
+const qBox=$("q"),sg=$("sg");
+const sgClose=()=>sg.classList.remove("show");
+const sgItem=(label,sub,attr)=>`<button class="sgItem" type="button" ${attr}><b>${esc(label)}</b>${sub?`<span>${esc(sub)}</span>`:""}</button>`;
+const sgSec=(title,items)=>items.length?`<div class="sgHead">${esc(title)}</div>${items.join("")}`:"";
+function suggest(){
+  const raw=S.q.trim().toLowerCase();
+  if(!raw){sgClose();return}
+  let html="";
+  if(raw.length===1){
+    const bs=allBrands().filter(b=>b.toLowerCase().startsWith(raw));
+    html=bs.length
+      ?sgSec(`Brands starting with "${raw.toUpperCase()}"`,bs.map(b=>sgItem(b,"",`data-term="${esc(b)}"`)))
+      :`<div class="sgHead">No brand starts with "${esc(raw.toUpperCase())}"</div>`;
+  }else{
+    const brands=allBrands().filter(b=>b.toLowerCase().includes(raw))
+      .sort((a,b)=>(b.toLowerCase().startsWith(raw)-a.toLowerCase().startsWith(raw))||a.localeCompare(b)).slice(0,6);
+    const arts=[...new Set(products.map(p=>p.article).filter(Boolean))].filter(a=>a.toLowerCase().includes(raw)).slice(0,6);
+    const cols=allColours().filter(c=>c.toLowerCase().includes(raw)).slice(0,6);
+    const prods=products.filter(p=>p.name.toLowerCase().includes(raw)).slice(0,6);
+    html=sgSec("Brands",brands.map(b=>sgItem(b,"",`data-term="${esc(b)}"`)))
+      +sgSec("Articles",arts.map(a=>sgItem(a,"",`data-term="${esc(a)}"`)))
+      +sgSec("Colours",cols.map(c=>sgItem(c,"",`data-term="${esc(c)}"`)))
+      +sgSec("Products",prods.map(p=>sgItem(p.name,p.brand,`data-pid="${esc(p.id)}"`)));
+    if(!html)html=`<div class="sgHead">No match for "${esc(S.q.trim())}"</div>`;
+  }
+  sg.innerHTML=html;
+  sg.classList.add("show");
+}
+sg.addEventListener("click",e=>{
+  const it=e.target.closest(".sgItem");if(!it)return;
+  sgClose();
+  if(it.dataset.pid){openProduct(it.dataset.pid);return}
+  qBox.value=it.dataset.term;S.q=it.dataset.term;render();
+});
+qBox.oninput=e=>{S.q=e.target.value;render();suggest()};
+qBox.onfocus=()=>suggest();
+qBox.onkeydown=e=>{if(e.key==="Enter")sgClose()};
+document.addEventListener("click",e=>{if(!e.target.closest(".search"))sgClose()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")sgClose()});
 $("sort").onchange=e=>{S.sort=e.target.value;render()};
 $("fBrand").onchange=e=>{S.brand=e.target.value;render()};
 $("fSize").onchange=e=>{S.size=e.target.value;render()};
