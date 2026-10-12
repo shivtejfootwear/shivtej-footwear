@@ -275,6 +275,26 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .bLine{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:12px 0}
 .bLine .bInfo{flex:1 1 160px;min-width:0}
 .bRm{border:0;background:none;color:var(--red);font-weight:700;font-size:13px}
+/* product page: full screen, photos on the left, details on the right (like the big shop sites) */
+#ovProduct{align-items:stretch;justify-content:stretch;background:#fff}
+#ovProduct .panel{width:100%;height:100%;padding:0;animation:fade .25s ease}
+.pdp{display:grid;grid-template-columns:1fr;gap:18px;max-width:1200px;margin:0 auto;padding:56px 16px 40px}
+.pdp .pHero{order:1;margin:0;aspect-ratio:auto;height:min(68vh,520px);border-radius:16px}
+.pdpThumbs{order:2;display:flex;gap:8px;overflow-x:auto;padding:2px}
+.pdpThumbs .gt{flex:0 0 auto;width:72px;height:72px}
+.pdpInfo{order:3}
+.pdp.single .pdpThumbs{display:none}
+.pArr{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:22px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.pArrL{left:10px}
+.pArrR{right:10px}
+@media (min-width:860px){
+  .pdp{grid-template-columns:84px minmax(0,1fr) 380px;align-items:start;gap:28px;padding:64px 28px 48px}
+  .pdp.single{grid-template-columns:minmax(0,1fr) 380px}
+  .pdp .pHero{order:0;height:min(78vh,680px)}
+  .pdpThumbs{order:0;flex-direction:column;overflow-y:auto;overflow-x:hidden;max-height:min(78vh,680px)}
+  .pdpThumbs .gt{width:84px;height:84px}
+  .pdpInfo{order:0;position:sticky;top:24px}
+}
 .pHero img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;padding:8%;animation:heroIn 1s cubic-bezier(.2,.7,.2,1) backwards,bob 6s ease-in-out 1s infinite}
 .pHero:after{content:"";position:absolute;left:24%;right:24%;bottom:12%;height:9%;border-radius:50%;background:rgba(0,0,0,.14);filter:blur(10px);animation:shadowPulse 6s ease-in-out 1s infinite}
 .hero .heroCta{background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.35)}
@@ -684,8 +704,10 @@ function drawProduct(){
   if(pGi>=gal.length)pGi=0;
   const cur=gal[pGi]||"";
   $("pPanel").innerHTML=`<button class="x" id="pX">×</button>
-    <div class="pHero" data-psrc="${esc(cur)}"><span class="ph">👟</span></div>
-    ${gal.length>1?`<div class="gThumbs">${gal.map((m,i)=>`<button class="gt ${i===pGi?"on":""}" data-gi="${i}" data-tsrc="${esc(m)}" aria-label="Photo ${i+1}"></button>`).join("")}</div>`:""}
+    <div class="pdp ${gal.length>1?"":"single"}">
+    ${gal.length>1?`<div class="pdpThumbs">${gal.map((m,i)=>`<button class="gt ${i===pGi?"on":""}" data-gi="${i}" data-tsrc="${esc(m)}" aria-label="Photo ${i+1}"></button>`).join("")}</div>`:""}
+    <div class="pHero" data-psrc="${esc(cur)}"><span class="ph">👟</span>${gal.length>1?`<button class="pArr pArrL" data-pg="-1" aria-label="Previous photo">‹</button><button class="pArr pArrR" data-pg="1" aria-label="Next photo">›</button>`:""}</div>
+    <div class="pdpInfo">
     <div class="brand">${esc(P.brand)}${P.article?" · Article "+esc(P.article):""}</div>
     <h3>${esc(P.name)}</h3>
     <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}</div>
@@ -697,7 +719,8 @@ function drawProduct(){
     <div class="lab">Quantity</div>
     <div class="qty"><button id="qM">−</button><span id="qV">${pQty}</span><button id="qP">+</button></div>
     <div class="row" style="display:grid;gap:8px"><button class="btn line" id="cartBtn" ${pSize?"":"disabled"}>Add to cart</button><button class="btn red" id="addBtn" ${pSize?"":"disabled"}>Buy now</button></div>
-    <p class="note">${pSize?(avail!=null?"Only "+avail+" pcs available in this size.":""):"Select a size first"}</p>`;
+    <p class="note">${pSize?(avail!=null?"Only "+avail+" pcs available in this size.":""):"Select a size first"}</p>
+    </div></div>`;
   $("pX").onclick=()=>$("ovProduct").classList.remove("show");
   const ph=$("pPanel").querySelector("[data-psrc]");if(ph&&ph.dataset.psrc){photoUrl(ph.dataset.psrc).then(url=>{if(!url||!ph.isConnected)return;const im=new Image();im.alt="";im.onload=()=>{ph.querySelector(".ph")?.remove();ph.prepend(im)};im.src=url}).catch(()=>{})}
   $("qM").onclick=()=>{pQty=Math.max(1,pQty-1);drawProduct()};
@@ -709,6 +732,7 @@ function drawProduct(){
   /* thumbnails: each one loads its own photo; tapping one shows it big */
   $("pPanel").querySelectorAll("[data-tsrc]").forEach(b=>{photoUrl(b.dataset.tsrc).then(url=>{if(!url||!b.isConnected)return;const im=new Image();im.alt="";im.onload=()=>b.appendChild(im);im.src=url}).catch(()=>{})});
   $("pPanel").querySelectorAll("[data-gi]").forEach(b=>b.onclick=()=>{pGi=+b.dataset.gi;drawProduct()});
+  $("pPanel").querySelectorAll("[data-pg]").forEach(b=>b.onclick=()=>{const n=gal.length;pGi=(pGi+Number(b.dataset.pg)+n)%n;drawProduct()});
 }
 function buyNow(){
   const v=curVariant();const row=v.sizes.find(s=>s.size===pSize);
