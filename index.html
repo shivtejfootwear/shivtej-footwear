@@ -268,6 +268,13 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .panel.enter>*:nth-child(7){animation-delay:.30s}
 .pHero{position:relative;aspect-ratio:1/1;border-radius:20px;background:radial-gradient(circle at 50% 35%,#ffffff 0%,#eef0f2 70%);overflow:hidden;margin:34px 0 18px;display:grid;place-items:center}
 .pHero .ph{font-size:56px;opacity:.35;position:relative;z-index:1}
+.gThumbs{display:flex;gap:8px;overflow-x:auto;margin:-6px 0 16px;padding:2px}
+.gt{flex:0 0 auto;width:64px;height:64px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:4px;overflow:hidden}
+.gt.on{border:2px solid var(--ink)}
+.gt img{width:100%;height:100%;object-fit:contain;display:block}
+.bLine{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:12px 0}
+.bLine .bInfo{flex:1 1 160px;min-width:0}
+.bRm{border:0;background:none;color:var(--red);font-weight:700;font-size:13px}
 .pHero img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;padding:8%;animation:heroIn 1s cubic-bezier(.2,.7,.2,1) backwards,bob 6s ease-in-out 1s infinite}
 .pHero:after{content:"";position:absolute;left:24%;right:24%;bottom:12%;height:9%;border-radius:50%;background:rgba(0,0,0,.14);filter:blur(10px);animation:shadowPulse 6s ease-in-out 1s infinite}
 .hero .heroCta{background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.35)}
@@ -329,7 +336,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour"></div>
-    <div class="icons"><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button></div>
+    <div class="icons"><button class="ico" title="Cart" aria-label="Cart" id="cartOpen" style="position:relative"><span class="ico-i">🛍️</span><span class="ico-t">Cart</span><span id="cartN" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:800;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px"></span></button><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
@@ -424,6 +431,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 <div class="ov" id="ovProduct"><div class="panel" id="pPanel"></div></div>
 <!-- cart and checkout -->
 <div class="ov" id="ovCart"><div class="panel" id="cPanel"></div></div>
+<div class="ov" id="ovBag"><div class="panel" id="bPanel"></div></div>
 <!-- order tracking -->
 <div class="ov" id="ovTrack"><div class="panel" id="tPanel"></div></div>
 <!-- help: size guide and contact -->
@@ -439,7 +447,75 @@ const money=n=>"₹"+Number(n||0).toLocaleString("en-IN");
 
 let products=[];
 const S={cat:"All",brand:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
-let buy=null; // the one item the customer is buying now (no cart)
+/* ---------- cart: items stay for 5 minutes ---------- */
+// An item stays in the cart for 5 minutes after it was added, then it is removed by itself.
+// The cart does not hold stock: stock is cut only when the payment is received (see site_place_order).
+const CART_MIN=5, CART_KEY="sv6_cart";
+const cartLeft=c=>Math.max(0,CART_MIN*60e3-(Date.now()-c.at));
+function loadCart(){
+  try{const a=JSON.parse(localStorage.getItem(CART_KEY)||"[]");return Array.isArray(a)?a.filter(c=>c&&c.at&&cartLeft(c)>0):[]}
+  catch(e){return []}
+}
+function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart))}catch(e){}}
+function pruneCart(){const n=cart.length;cart=cart.filter(c=>cartLeft(c)>0);if(cart.length!==n){saveCart();return true}return false}
+let cart=loadCart();
+// Items on the checkout form: one item from Buy now, or all items from the cart.
+let checkLines=[],checkFromCart=false;
+function renderCartCount(){const n=cart.reduce((a,c)=>a+c.qty,0);const el=$("cartN");if(el){el.textContent=n;el.style.display=n?"":"none"}}
+function stockRow(pid,colour,size){const p=products.find(x=>x.id===pid);const v=p&&p.variants.find(x=>x.colour===colour);return v?v.sizes.find(s=>s.size===size):null}
+function addToCart(){
+  const row=curVariant().sizes.find(s=>s.size===pSize);
+  if(!row){toast("Select a size");return}
+  pruneCart();
+  const ex=cart.find(c=>c.pid===P.id&&c.colour===pColour&&c.size===pSize);
+  const want=Math.min(10,(ex?ex.qty:0)+pQty);
+  if(want>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
+  if(ex){ex.qty=want;ex.at=Date.now()}
+  else cart.push({pid:P.id,colour:pColour,size:pSize,qty:pQty,at:Date.now()});
+  saveCart();renderCartCount();
+  $("ovProduct").classList.remove("show");
+  toast("Added to cart. It stays here for 5 minutes.");
+}
+function bumpCart(i,d){
+  const c=cart[i];if(!c)return;
+  const row=stockRow(c.pid,c.colour,c.size);
+  const max=Math.min(10,row?row.qty:10);
+  const n=c.qty+d;
+  if(n<1)return;
+  if(n>max){toast("Low stock. Only "+max+" pcs left in this size");return}
+  c.qty=n;saveCart();renderCartCount();drawBag();
+}
+function drawBag(){
+  pruneCart();
+  const rows=cart.map((c,i)=>({c,i,p:products.find(x=>x.id===c.pid)})).filter(r=>r.p);
+  const sub=rows.reduce((n,r)=>n+r.p.price*r.c.qty,0);
+  $("bPanel").innerHTML=`<button class="x" id="bX">×</button><h3>Cart</h3>
+    <p class="sub">Items stay in your cart for 5 minutes. Stock is updated only after your payment is received.</p>
+    ${rows.length?rows.map(({c,i,p})=>`<div class="bLine">
+        <div class="bInfo"><b>${esc(p.name)}</b>
+          <div class="note">${esc(c.colour)} · Size ${esc(c.size)} · ${money(p.price)}</div>
+          <div class="note">Stays ${Math.ceil(cartLeft(c)/60e3)} min more</div></div>
+        <div class="qty"><button data-bm="${i}">−</button><span>${c.qty}</span><button data-bp="${i}">+</button></div>
+        <b>${money(p.price*c.qty)}</b>
+        <button class="bRm" data-brm="${i}">Remove</button></div>`).join("")
+      :'<p class="sub">Your cart is empty.</p>'}
+    ${rows.length?`<div class="bill"><div class="brow sep"><span>Items total</span><b>${money(sub)}</b></div></div>
+      <p class="note">Shipping is added at checkout.</p>
+      <button class="btn red" style="width:100%" id="bCheck">Checkout</button>`:""}`;
+  $("bX").onclick=()=>$("ovBag").classList.remove("show");
+  $("bPanel").querySelectorAll("[data-bm]").forEach(b=>b.onclick=()=>bumpCart(+b.dataset.bm,-1));
+  $("bPanel").querySelectorAll("[data-bp]").forEach(b=>b.onclick=()=>bumpCart(+b.dataset.bp,1));
+  $("bPanel").querySelectorAll("[data-brm]").forEach(b=>b.onclick=()=>{cart.splice(+b.dataset.brm,1);saveCart();renderCartCount();drawBag()});
+  const ck=$("bCheck");if(ck)ck.onclick=cartCheckout;
+}
+function cartCheckout(){
+  pruneCart();
+  if(!cart.length){toast("Your cart is empty");return}
+  checkLines=cart.map(c=>({pid:c.pid,colour:c.colour,size:c.size,qty:c.qty}));
+  checkFromCart=true;
+  $("ovBag").classList.remove("show");
+  drawCheckout();$("ovCart").classList.add("show");
+}
 
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),2200)}
 
@@ -591,10 +667,10 @@ const io="IntersectionObserver" in window?new IntersectionObserver(es=>es.forEac
 function revealCards(){document.querySelectorAll(".card").forEach(c=>{if(io)io.observe(c);else c.classList.add("in")})}
 
 /* ---------- product panel ---------- */
-let P=null,pColour="",pSize="",pQty=1;
+let P=null,pColour="",pSize="",pQty=1,pGi=0;
 function openProduct(id){
   P=products.find(p=>p.id===id);if(!P)return;
-  pColour=P.variants[0].colour;pSize="";pQty=1;
+  pColour=P.variants[0].colour;pSize="";pQty=1;pGi=0;
   drawProduct();$("ovProduct").classList.add("show");
   const pp=$("pPanel");pp.classList.add("enter");clearTimeout(pp._t);pp._t=setTimeout(()=>pp.classList.remove("enter"),1400);
 }
@@ -603,8 +679,13 @@ function drawProduct(){
   const v=curVariant();
   const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size));
   const avail=pSize?(sizes.find(s=>s.size===pSize)||{}).qty:null;
+  /* all photos of this colour (and the product), without repeats */
+  const gal=[...new Set(v.media)];
+  if(pGi>=gal.length)pGi=0;
+  const cur=gal[pGi]||"";
   $("pPanel").innerHTML=`<button class="x" id="pX">×</button>
-    <div class="pHero" data-psrc="${esc(v.media[0]||"")}"><span class="ph">👟</span></div>
+    <div class="pHero" data-psrc="${esc(cur)}"><span class="ph">👟</span></div>
+    ${gal.length>1?`<div class="gThumbs">${gal.map((m,i)=>`<button class="gt ${i===pGi?"on":""}" data-gi="${i}" data-tsrc="${esc(m)}" aria-label="Photo ${i+1}"></button>`).join("")}</div>`:""}
     <div class="brand">${esc(P.brand)}${P.article?" · Article "+esc(P.article):""}</div>
     <h3>${esc(P.name)}</h3>
     <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}</div>
@@ -615,28 +696,32 @@ function drawProduct(){
     <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(s.size)}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
     <div class="lab">Quantity</div>
     <div class="qty"><button id="qM">−</button><span id="qV">${pQty}</span><button id="qP">+</button></div>
-    <div class="row"><button class="btn red" style="flex:1" id="addBtn" ${pSize?"":"disabled"}>${pSize?"Buy directly":"Select a size first"}</button></div>
-    <p class="note">${avail!=null&&pSize?"Only "+avail+" pcs available in this size.":""}</p>`;
+    <div class="row" style="display:grid;gap:8px"><button class="btn line" id="cartBtn" ${pSize?"":"disabled"}>Add to cart</button><button class="btn red" id="addBtn" ${pSize?"":"disabled"}>Buy now</button></div>
+    <p class="note">${pSize?(avail!=null?"Only "+avail+" pcs available in this size.":""):"Select a size first"}</p>`;
   $("pX").onclick=()=>$("ovProduct").classList.remove("show");
   const ph=$("pPanel").querySelector("[data-psrc]");if(ph&&ph.dataset.psrc){photoUrl(ph.dataset.psrc).then(url=>{if(!url||!ph.isConnected)return;const im=new Image();im.alt="";im.onload=()=>{ph.querySelector(".ph")?.remove();ph.prepend(im)};im.src=url}).catch(()=>{})}
   $("qM").onclick=()=>{pQty=Math.max(1,pQty-1);drawProduct()};
   $("qP").onclick=()=>{const max=Math.min(10,avail??10);pQty=Math.min(max,pQty+1);drawProduct()};
   $("addBtn").onclick=buyNow;
-  $("pPanel").querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{pColour=b.dataset.col;pSize="";pQty=1;drawProduct()});
+  $("cartBtn").onclick=addToCart;
+  $("pPanel").querySelectorAll("[data-col]").forEach(b=>b.onclick=()=>{pColour=b.dataset.col;pSize="";pQty=1;pGi=0;drawProduct()});
   $("pPanel").querySelectorAll("[data-sz]").forEach(b=>b.onclick=()=>{pSize=b.dataset.sz;pQty=1;drawProduct()});
+  /* thumbnails: each one loads its own photo; tapping one shows it big */
+  $("pPanel").querySelectorAll("[data-tsrc]").forEach(b=>{photoUrl(b.dataset.tsrc).then(url=>{if(!url||!b.isConnected)return;const im=new Image();im.alt="";im.onload=()=>b.appendChild(im);im.src=url}).catch(()=>{})});
+  $("pPanel").querySelectorAll("[data-gi]").forEach(b=>b.onclick=()=>{pGi=+b.dataset.gi;drawProduct()});
 }
 function buyNow(){
   const v=curVariant();const row=v.sizes.find(s=>s.size===pSize);
   if(!row){toast("Select a size");return}
   if(pQty>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
-  buy={pid:P.id,colour:pColour,size:pSize,qty:pQty};
+  checkLines=[{pid:P.id,colour:pColour,size:pSize,qty:pQty}];checkFromCart=false;
   $("ovProduct").classList.remove("show");
   drawCheckout();$("ovCart").classList.add("show");
 }
 
 /* ---------- cart and checkout ---------- */
 /* ---------- checkout (buy one item directly) ---------- */
-function buyLines(){if(!buy)return [];const p=products.find(x=>x.id===buy.pid);return p?[{...buy,p}]:[]}
+function buyLines(){return checkLines.map(x=>{const p=products.find(y=>y.id===x.pid);return p?{...x,p}:null}).filter(Boolean)}
 // Shipping charge for website orders. The server sets the real amount; this is only what the customer sees.
 let SHIP_FEE=80;
 async function loadShipFee(){
@@ -760,7 +845,9 @@ async function placeOrder(){
   try{
     const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items}});
     if(!res||!res.ok)throw new Error("FAILED");
-    buy=null;
+    // ordered items leave the cart (only when the order came from the cart)
+    if(checkFromCart)cart=cart.filter(c=>!lines.some(l=>l.pid===c.pid&&l.colour===c.colour&&l.size===c.size));
+    checkLines=[];checkFromCart=false;saveCart();renderCartCount();
     rememberOrder(res.id,mobile);showTrackIcon();
     const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
     $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
@@ -810,8 +897,12 @@ document.addEventListener("click",e=>{
   const view=e.target.closest("[data-view]");
   if(view){openProduct(view.dataset.view);return}
 });
-["ovProduct","ovCart"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
+["ovProduct","ovCart","ovBag"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
 $("trackOpen").onclick=openTrack;
+$("cartOpen").onclick=()=>{drawBag();$("ovBag").classList.add("show")};
+// every 15 seconds: remove items whose 5 minutes are over, and refresh the open cart
+setInterval(()=>{const changed=pruneCart();if(changed)renderCartCount();if($("ovBag").classList.contains("show"))drawBag()},15000);
+renderCartCount();
 $("ovTrack").addEventListener("click",ev=>{if(ev.target.id==="ovTrack")$("ovTrack").classList.remove("show")});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ovTrack").classList.remove("show")});
 $("q").oninput=e=>{S.q=e.target.value;render()};
@@ -823,7 +914,7 @@ $("pMin").oninput=()=>{if(+$("pMin").value>+$("pMax").value)$("pMin").value=$("p
 $("pMax").oninput=()=>{if(+$("pMax").value<+$("pMin").value)$("pMax").value=$("pMin").value;paintPrice();render()};
 $("fNew").onchange=e=>{S.newOnly=e.target.checked;render()};
 $("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("ovProduct").classList.remove("show");$("ovCart").classList.remove("show")}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("ovProduct").classList.remove("show");$("ovCart").classList.remove("show");$("ovBag").classList.remove("show")}});
 
 $("grid").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
 /* scroll effects */
@@ -1022,6 +1113,17 @@ $("ovInfo").addEventListener("click",ev=>{if(ev.target.id==="ovInfo")closeInfo()
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeInfo()});
 // The bill is for online paid orders only (payment_status says "Paid").
 const isPaidStatus=s=>{const v=String(s||"").toLowerCase();return v.includes("paid")&&!v.includes("unpaid")&&!v.includes("pending")};
+// Shiprocket scan history on Track order: newest first, with the place and the time.
+function scanHtml(scans){
+  if(!Array.isArray(scans)||!scans.length)return "";
+  const fmtWhen=s=>{const t=new Date(String(s).replace(" ","T"));return isNaN(t)?esc(s):t.toLocaleString("en-IN",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+  const time=s=>new Date(String(s.at).replace(" ","T")).getTime()||0;
+  const rows=scans.slice().sort((a,b)=>time(b)-time(a)).map(s=>`<li style="margin:0 0 12px">
+      <b>${esc(s.activity||s.status||"Update")}</b>
+      <div style="font-size:12px;color:#6b6b72">${s.location?esc(s.location)+" · ":""}${s.at?fmtWhen(s.at):""}</div></li>`).join("");
+  return `<div style="margin-top:12px"><b>Shipment updates</b>
+    <ul style="list-style:none;margin:8px 0 0;padding:0 0 0 12px;border-left:2px solid #e5e5ea">${rows}</ul></div>`;
+}
 function trackHtml(o){
   const st=o.order_status||"New";
   if(st==="Cancelled")return `<div class="tres"><b>Order ${esc(o.id)}: Cancelled</b></div>`;
@@ -1032,6 +1134,7 @@ function trackHtml(o){
     ${o.courier?`<div>Courier: <b>${esc(o.courier)}</b></div>`:""}
     ${o.tracking_no?`<div>Tracking number: <b>${esc(o.tracking_no)}</b></div>`:""}
     ${o.shipment_status?`<div>Live status: <b>${esc(o.shipment_status)}</b></div>`:""}
+    ${scanHtml(o.shipment_scans)}
     <div>Shipping: ${money(o.shipping)}</div>
     <div>Total: <b>${money(o.total)}</b></div>
     ${canPayOnline(o)?`<button class="btn red" style="width:100%;margin-top:10px" data-pay="1">Pay now</button>`:""}
