@@ -689,11 +689,14 @@ const allSizes=()=>[...new Set(products.flatMap(p=>p.variants.flatMap(v=>v.sizes
 const allColours=()=>[...new Set(products.flatMap(p=>p.variants.map(v=>v.colour)))].sort();
 const allBrands=()=>[...new Set(products.map(p=>p.brand).filter(Boolean))].sort();
 const allCats=()=>[...new Set(products.map(p=>p.category).filter(Boolean))].sort();
+/* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly */
+const KIDS_CATS=["Kids","Boy","Girl"];
+const inCat=(p,cat)=>cat==="Kids"?KIDS_CATS.includes(p.category):p.category===cat;
 
 function match(p){
   // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
   const words=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if(S.cat!=="All"&&S.cat!=="NEW"&&p.category!==S.cat)return false;
+  if(S.cat!=="All"&&S.cat!=="NEW"&&!inCat(p,S.cat))return false;
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.priceMin!=null&&(p.price<S.priceMin||p.price>S.priceMax))return false;
@@ -755,7 +758,7 @@ function cardHtml(p,i){
     </div></article>`;
 }
 function renderSizeBar(){
-  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:p.category===S.cat);
+  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:inCat(p,S.cat));
   const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
   const szHtml='<b>Size</b>'+(sizes.length?sizes.map(z=>`<button class="sz2 ${S.size===z?"on":""}" data-size="${esc(z)}">${esc(z)}</button>`).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
   $("sizeBar").innerHTML=szHtml;
@@ -1354,7 +1357,7 @@ function renderCatLogos(){
 function renderCatSections(){
   const seen=new Set();
   $("catSections").innerHTML=LOGO_CATS.filter(c=>{if(seen.has(c.match))return false;seen.add(c.match);return true}).map(c=>{
-    const list=products.filter(p=>p.category===c.match).slice().sort((a,b)=>Number(b.newItem)-Number(a.newItem)).slice(0,6);
+    const list=products.filter(p=>inCat(p,c.match)).slice().sort((a,b)=>Number(b.newItem)-Number(a.newItem)).slice(0,6);
     return `<div class="catSec" id="${catKey(c.match)}">
       <div class="sec"><h3>${esc(c.section)}</h3><button class="more" data-go="${esc(c.match)}">View all →</button></div>
       <div class="rail">${list.length?list.map(miniCard).join(""):'<div class="empty" style="width:100%">No products in this category yet.</div>'}</div>
