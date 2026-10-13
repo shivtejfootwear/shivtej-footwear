@@ -1205,8 +1205,13 @@ function playFilm(fv){
   if(p&&p.catch)p.catch(()=>{
     fv.muted=true;
     const pm=fv.play();if(pm&&pm.catch)pm.catch(()=>{});
-    const unmute=()=>{fv.muted=false;const q=fv.play();if(q&&q.catch)q.catch(()=>{fv.muted=true;fv.play().catch(()=>{})})};
-    ["pointerdown","keydown","touchend"].forEach(ev=>document.addEventListener(ev,unmute,{once:true,capture:true}));
+    /* every tap tries again until the sound is on */
+    const evs=["pointerdown","keydown","touchend","click"];
+    const unmute=()=>{
+      fv.muted=false;
+      Promise.resolve(fv.play()).then(()=>{evs.forEach(e=>document.removeEventListener(e,unmute,true))},()=>{fv.muted=true});
+    };
+    evs.forEach(e=>document.addEventListener(e,unmute,true));
   });
 }
 function applySettings(){
