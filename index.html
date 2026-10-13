@@ -464,6 +464,8 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 <div class="ov" id="ovTrack"><div class="panel" id="tPanel"></div></div>
 <!-- help: size guide and contact -->
 <div class="ov" id="ovInfo"><div class="panel" id="iPanel"></div></div>
+<!-- customer login with WhatsApp OTP -->
+<div class="ov" id="ovLogin"><div class="panel" id="lPanel"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -932,6 +934,8 @@ document.addEventListener("click",e=>{
 });
 ["ovProduct","ovCart","ovBag"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
 $("trackOpen").onclick=openTrack;
+$("loginBtn").onclick=openLogin;
+$("ovLogin").addEventListener("click",ev=>{if(ev.target.id==="ovLogin")$("ovLogin").classList.remove("show")});
 $("cartOpen").onclick=()=>{drawBag();$("ovBag").classList.add("show")};
 // every 15 seconds: remove items whose 5 minutes are over, and refresh the open cart
 setInterval(()=>{const changed=pruneCart();if(changed)renderCartCount();if($("ovBag").classList.contains("show"))drawBag()},15000);
@@ -1130,6 +1134,71 @@ const TRACK_STEPS=["New","Confirmed","Packed","Shipped","Delivered"];
 const lastOrder=()=>{try{return JSON.parse(localStorage.getItem("sv5_last_order")||"null")}catch(e){return null}};
 const rememberOrder=(id,mobile)=>{try{localStorage.setItem("sv5_last_order",JSON.stringify({id,mobile}))}catch(e){}};
 function showTrackIcon(){$("trackOpen").style.display=""}
+/* ---------- customer login with WhatsApp OTP (Supabase function customer-otp) ---------- */
+const LOGIN_KEY="sv7_customer";
+const getLogin=()=>{try{return JSON.parse(localStorage.getItem(LOGIN_KEY)||"null")}catch(e){return null}};
+const saveLogin=v=>{try{v?localStorage.setItem(LOGIN_KEY,JSON.stringify(v)):localStorage.removeItem(LOGIN_KEY)}catch(e){}};
+async function otpCall(body){
+  const r=await fetch(SB_URL+"/functions/v1/customer-otp",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify(body)});
+  let j={};try{j=await r.json()}catch(e){}
+  return {ok:r.ok&&j.ok===true,error:j.error||"",data:j};
+}
+const OTP_MSG={
+  BAD_MOBILE:"Enter a valid 10 digit mobile number.",
+  TOO_MANY:"Too many codes sent. Try again after 10 minutes.",
+  SEND_FAILED:"Could not send the code on WhatsApp. Try again.",
+  WRONG_CODE:"Wrong code. Check the WhatsApp message and try again.",
+  EXPIRED:"This code has expired. Send a new code.",
+  TOO_MANY_TRIES:"Too many wrong tries. Send a new code.",
+  NOT_CONFIGURED:"Login is not available right now. Please try later."
+};
+function openLogin(){
+  const me=getLogin();
+  if(me){
+    $("lPanel").innerHTML=`<button class="x" id="lX">×</button><h3>You are logged in</h3>
+      <p class="sub">${esc(me.name||"Customer")} · ${esc(me.mobile)}</p>
+      <button class="btn dark" style="width:100%" id="lOut">Logout</button>`;
+    $("lOut").onclick=()=>{saveLogin(null);$("ovLogin").classList.remove("show");toast("Logged out")};
+  }else{
+    $("lPanel").innerHTML=`<button class="x" id="lX">×</button><h3>Login</h3>
+      <p class="sub">We will send a 6 digit code on WhatsApp to your mobile number.</p>
+      <input class="field" id="lMob" inputmode="numeric" maxlength="10" placeholder="10 digit mobile number">
+      <button class="btn dark" style="width:100%" id="lSend">Send code</button>
+      <div id="lStep2" style="display:none;margin-top:14px">
+        <input class="field" id="lCode" inputmode="numeric" maxlength="6" placeholder="6 digit code">
+        <button class="btn red" style="width:100%" id="lVerify">Verify and login</button>
+      </div>
+      <div id="lMsg" class="note" style="margin-top:10px;min-height:18px"></div>`;
+    let mob="";
+    const msg=t=>{$("lMsg").textContent=t};
+    $("lSend").onclick=async()=>{
+      mob=$("lMob").value.trim();
+      if(!/^[6-9]\d{9}$/.test(mob)){msg(OTP_MSG.BAD_MOBILE);return}
+      $("lSend").disabled=true;msg("Sending code...");
+      try{
+        const res=await otpCall({action:"send",mobile:mob});
+        if(res.ok){$("lStep2").style.display="";msg("Code sent on WhatsApp to "+mob+".");$("lCode").focus()}
+        else msg(OTP_MSG[res.error]||"Could not send the code. Try again.");
+      }catch(e){msg("Network problem. Check your internet and try again.")}
+      $("lSend").disabled=false;
+    };
+    $("lVerify").onclick=async()=>{
+      const code=$("lCode").value.trim();
+      if(!/^\d{6}$/.test(code)){msg("Enter the 6 digit code.");return}
+      $("lVerify").disabled=true;msg("Checking...");
+      try{
+        const res=await otpCall({action:"verify",mobile:mob,code});
+        if(res.ok){
+          saveLogin({token:res.data.token,mobile:res.data.customer?.mobile||mob,name:res.data.customer?.name||""});
+          $("ovLogin").classList.remove("show");toast("Logged in");
+        }else msg(OTP_MSG[res.error]||"Could not verify the code. Try again.");
+      }catch(e){msg("Network problem. Check your internet and try again.")}
+      $("lVerify").disabled=false;
+    };
+  }
+  $("lX").onclick=()=>$("ovLogin").classList.remove("show");
+  $("ovLogin").classList.add("show");
+}
 function openTrack(){
   const lo=lastOrder()||{};
   $("tPanel").innerHTML=`<h3>Track your order</h3>
