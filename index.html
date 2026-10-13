@@ -387,7 +387,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
       <div class="dd"><button data-go="Kids">Kids</button><div class="menu"><button data-go="Kids">All Kids</button><button data-go="NEW">New Kids</button></div></div>
     </nav>
     <div class="search"><input id="q" placeholder="Search name, article, brand, colour" autocomplete="off"><div class="sg" id="sg"></div></div>
-    <div class="icons"><button class="ico" title="Cart" aria-label="Cart" id="cartOpen" style="position:relative"><span class="ico-i">🛍️</span><span class="ico-t">Cart</span><span id="cartN" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:800;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px"></span></button><button class="ico" title="Track order" aria-label="Track order" id="trackOpen" style="display:none"><span class="ico-i">📦</span><span class="ico-t">Track order</span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button><button class="ico" title="Your orders" aria-label="Your orders" id="ordersBtn"><span class="ico-i">🧾</span><span class="ico-t">Orders</span></button></div>
+    <div class="icons"><button class="ico" title="Cart" aria-label="Cart" id="cartOpen" style="position:relative"><span class="ico-i">🛍️</span><span class="ico-t">Cart</span><span id="cartN" style="display:none;position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:800;min-width:17px;height:17px;line-height:17px;text-align:center;padding:0 4px"></span></button><button class="ico" title="Login" aria-label="Login" id="loginBtn"><span class="ico-i">👤</span><span class="ico-t">Login</span></button><button class="ico" title="Your orders" aria-label="Your orders" id="ordersBtn"><span class="ico-i">📦</span><span class="ico-t">Orders</span></button></div>
   </div>
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
@@ -958,7 +958,6 @@ document.addEventListener("click",e=>{
   if(view){openProduct(view.dataset.view);return}
 });
 ["ovProduct","ovCart","ovBag"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
-$("trackOpen").onclick=openTrack;
 $("loginBtn").onclick=openLogin;
 $("ordersBtn").onclick=openOrders;
 $("ovOrders").addEventListener("click",ev=>{if(ev.target.id==="ovOrders")$("ovOrders").classList.remove("show")});
@@ -1175,7 +1174,7 @@ function renderRails(){
 const TRACK_STEPS=["New","Confirmed","Packed","Shipped","Delivered"];
 const lastOrder=()=>{try{return JSON.parse(localStorage.getItem("sv5_last_order")||"null")}catch(e){return null}};
 const rememberOrder=(id,mobile)=>{try{localStorage.setItem("sv5_last_order",JSON.stringify({id,mobile}))}catch(e){}};
-function showTrackIcon(){$("trackOpen").style.display=""}
+function showTrackIcon(){/* the header Track order button was removed; tracking opens from Orders and Help */}
 /* ---------- customer login with WhatsApp OTP (Supabase function customer-otp) ---------- */
 const LOGIN_KEY="sv7_customer";
 const getLogin=()=>{try{return JSON.parse(localStorage.getItem(LOGIN_KEY)||"null")}catch(e){return null}};
