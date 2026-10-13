@@ -111,6 +111,22 @@ button{cursor:pointer}
 .name{margin:4px 0 6px;font-size:16px;font-weight:800;line-height:1.25;min-height:20px}
 .price{font-weight:900;font-size:17px}
 .price s{color:var(--mute);font-weight:500;font-size:13px;margin-left:6px}
+.pOff{display:inline-block;margin-left:6px;font-size:12px;font-weight:800;color:#157347}
+.cpn{display:flex;gap:8px;margin:6px 0 2px}
+.cpn .field{flex:1;min-width:0;margin:0;text-transform:uppercase}
+.cpn .btn{flex:0 0 auto}
+.cpnMsg{min-height:18px;margin:2px 0 10px;font-size:13px}
+/* today's offer popup (set in the admin: Today's offer) */
+.offerOv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:fade .25s ease}
+.offerOv[hidden]{display:none}
+.offerBox{position:relative;width:min(380px,100%);background:#fff;color:#1b1b1b;border-radius:20px;padding:30px 22px 22px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.offerBox .x{position:absolute;top:8px;right:12px;font-size:26px;line-height:1;background:none;border:0;cursor:pointer;color:inherit}
+.offerTag{font-size:12px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;color:#c40508}
+.offerBig{font-size:42px;font-weight:900;margin:8px 0 4px;line-height:1.1}
+.offerBox .sub{margin:0 0 12px}
+.offerCode{display:inline-block;border:2px dashed #c40508;border-radius:12px;padding:10px 18px;font-weight:900;font-size:20px;letter-spacing:.12em;margin:4px 0 8px}
+.offerBtns{display:flex;gap:8px;margin-top:12px}
+.offerBtns .btn{flex:1}
 .sizes{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 10px}
 .sz{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:3px 6px;color:var(--ink)}
 .sz.off{color:#b5b5b5;text-decoration:line-through}
@@ -310,6 +326,32 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 .pHero:after{content:"";position:absolute;left:24%;right:24%;bottom:12%;height:9%;border-radius:50%;background:rgba(0,0,0,.14);filter:blur(10px);animation:shadowPulse 6s ease-in-out 1s infinite}
 .hero .heroCta{background:#111;color:#fff;box-shadow:0 10px 24px rgba(0,0,0,.35)}
 .hero .heroCta:hover{background:#000}
+/* home slider: the red top screen first, then the extra screens set in the admin (swipe, arrows, dots) */
+.slider{position:relative;overflow:hidden}
+.sTrack{display:flex;transition:transform .7s cubic-bezier(.2,.7,.2,1);will-change:transform}
+.sSlide{flex:0 0 100%;min-width:0;display:flex;flex-direction:column}
+.sSlide>section{flex:1 1 auto}
+.sCust{position:relative;overflow:hidden;min-height:min(80vh,600px);display:flex;align-items:center;color:#fff;background:linear-gradient(120deg,#c40508 0%,#7a0c15 100%);padding:clamp(56px,9vw,96px) 0 clamp(72px,9vw,104px)}
+@media (max-width:820px){.sCust{min-height:min(70vh,540px)}}
+.sCust .sMedia{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.sShade{position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.15) 100%)}
+.sInner{position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:28px}
+.sText{max-width:520px}
+.sText h1{font-size:clamp(30px,5vw,56px);line-height:1.05;margin:0 0 14px;font-weight:800;letter-spacing:-.02em}
+.sText p{font-size:clamp(14px,1.5vw,16px);line-height:1.6;opacity:.92;margin:0 0 22px;max-width:460px}
+.sProd{background:#fff;color:#1b1b1b;border-radius:16px;padding:12px;width:min(250px,100%);cursor:pointer;box-shadow:0 14px 34px rgba(0,0,0,.3)}
+.sProd .sPhoto{position:relative;aspect-ratio:1/1;border-radius:12px;background:#f2f2f2;overflow:hidden;margin-bottom:10px}
+.sProd .sPhoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:8%}
+.sProd .sPhoto .ph{font-size:48px;opacity:.35;display:flex;align-items:center;justify-content:center;height:100%}
+.sPName{font-weight:800;font-size:15px;line-height:1.3;margin-bottom:6px}
+.sProd .price{font-weight:900;font-size:16px}
+.sProd .price s{color:#8a8a8a}
+.sCtl{position:absolute;left:0;right:0;bottom:16px;z-index:5;display:flex;align-items:center;justify-content:center;gap:14px}
+.sCtl[hidden]{display:none}
+.sArr{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.6);background:rgba(0,0,0,.35);color:#fff;font-size:22px;line-height:1;cursor:pointer}
+.sDots{display:flex;gap:8px;align-items:center}
+.sDot{width:9px;height:9px;border-radius:999px;border:0;padding:0;background:rgba(255,255,255,.45);cursor:pointer;transition:all .3s}
+.sDot.on{background:#fff;width:24px}
 @keyframes heroIn{from{opacity:0;transform:scale(1.12) translateY(10px)}to{opacity:1;transform:none}}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 @keyframes shadowPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.8);opacity:.6}}
@@ -395,6 +437,9 @@ footer p{font-size:13px;line-height:1.6;margin:0}
   <div class="wrap sizeBar" id="sizeBar"></div>
 </header>
 
+<div class="slider" id="slider">
+<div class="sTrack" id="sTrack">
+<div class="sSlide">
 <section class="hero">
   <div class="heroBg" id="heroBg"></div>
   <div class="wrap heroIn" id="heroIn">
@@ -404,6 +449,14 @@ footer p{font-size:13px;line-height:1.6;margin:0}
     <button class="btn heroCta" data-go="NEW">View New Items</button>
   </div>
 </section>
+</div>
+</div>
+<div class="sCtl" id="sCtl" hidden>
+  <button class="sArr" id="sPrev" type="button" aria-label="Previous screen">‹</button>
+  <div class="sDots" id="sDots"></div>
+  <button class="sArr" id="sNext" type="button" aria-label="Next screen">›</button>
+</div>
+</div>
 
 <main class="wrap">
   <section class="wrap rv" id="pick">
@@ -485,6 +538,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 <!-- product detail -->
 <div class="ov" id="ovProduct"><div class="panel" id="pPanel"></div></div>
 <!-- cart and checkout -->
+<div class="offerOv" id="offerOv" hidden><div class="offerBox" id="offerBox"></div></div>
 <div class="ov" id="ovCart"><div class="panel" id="cPanel"></div></div>
 <div class="ov" id="ovBag"><div class="panel" id="bPanel"></div></div>
 <!-- order tracking -->
@@ -503,6 +557,8 @@ const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+/* "X% OFF" label for MRP vs selling price (empty when there is no discount) */
+const offLabel=p=>{const m=Number(p.mrp)||0,s=Number(p.price)||0;if(m<=s||m<=0)return"";return`<span class="pOff">${Math.round((m-s)/m*100)}% OFF</span>`};
 
 let products=[];
 const S={cat:"All",brand:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
@@ -621,7 +677,7 @@ async function loadProducts(){
     products=[];
     toast("Products could not load yet. Please refresh in a moment.");
   }
-  buildFilters();render();renderRails();
+  buildFilters();render();renderRails();renderSlides();
 }
 
 /* ---------- helpers ---------- */
@@ -687,7 +743,7 @@ function cardHtml(p,i){
     <div class="body">
       <div class="brand">${esc(p.brand)}${p.article?" · "+esc(p.article):""}</div>
       <div class="name">${esc(p.name)}</div>
-      <div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}</div>
+      <div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>
       <div class="sizes">${sizes}</div>
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
       <div class="acts">
@@ -752,7 +808,7 @@ function drawProduct(){
     <div class="pdpInfo">
     <div class="brand">${esc(P.brand)}${P.article?" · Article "+esc(P.article):""}</div>
     <h3>${esc(P.name)}</h3>
-    <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}</div>
+    <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}${offLabel(P)}</div>
     ${P.desc?`<p class="sub">${esc(P.desc)}</p>`:""}
     <div class="lab">Colour</div>
     <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}">${esc(x.colour)}</button>`).join("")}</div>
@@ -796,16 +852,45 @@ async function loadShipFee(){
 const COUNTRIES=["India","Nepal","Bhutan","Bangladesh","Sri Lanka","UAE","USA","UK","Canada","Australia","Other"];
 const INDIAN_STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
 // Bill shown at checkout and on the order confirmation: each item, items total, shipping, total payable.
-function billHtml(rows,sub,ship,total){
+function billHtml(rows,sub,ship,total,disc=0,code=""){
   return `<div class="bill">${rows.map(r=>`<div class="brow"><span>${esc(r.name)} · ${esc(r.colour)} · Size ${esc(r.size)} × ${r.qty}</span><b>${money(r.amount)}</b></div>`).join("")}
     <div class="brow sep"><span>Items total</span><b>${money(sub)}</b></div>
+    ${Number(disc)>0?`<div class="brow"><span>Coupon ${esc(code)}</span><b>- ${money(disc)}</b></div>`:""}
     <div class="brow"><span>Shipping</span><b>${money(ship)}</b></div>
     <div class="brow tot"><span>Total payable</span><b>${money(total)}</b></div></div>`;
 }
+/* coupon typed at checkout: applied to the items it was checked for (the server checks again when the order is placed) */
+let appliedCoupon=null;
+const couponSig=lines=>lines.map(x=>`${x.pid}|${x.colour}|${x.size}|${x.qty}`).sort().join(";");
+function couponErr(m){
+  return String(m||"").includes("COUPON_NOT_FOR_CART")?"This coupon is not for the items in your bill.":"This coupon code is not valid.";
+}
+async function applyCoupon(){
+  const code=$("cCoupon").value.trim().toUpperCase();
+  const msg=$("cpnMsg"),btn=$("cpnBtn");
+  const lines=buyLines();
+  if(!code){appliedCoupon=null;msg.textContent="";paintCheckoutSum();return}
+  if(!lines.length){toast("Please select a size first");return}
+  btn.disabled=true;
+  try{
+    const r=await rpc("site_check_coupon",{p_code:code,p_items:lines.map(x=>({product_id:x.pid,qty:Number(x.qty)}))});
+    if(r&&r.ok){
+      appliedCoupon={code:r.code,discount:Number(r.discount)||0,sig:couponSig(lines)};
+      msg.textContent=`Coupon ${r.code} applied. You save ${money(appliedCoupon.discount)}.`;
+    }else{appliedCoupon=null;msg.textContent=couponErr(r&&r.error)}
+  }catch(e){appliedCoupon=null;msg.textContent="Could not check the coupon now. Please try again."}
+  finally{btn.disabled=false}
+  paintCheckoutSum();
+}
 function paintCheckoutSum(){
-  const rows=buyLines().map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const lines=buyLines();
+  const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
   const sub=rows.reduce((n,r)=>n+r.amount,0);
-  $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,SHIP_FEE,sub+SHIP_FEE);
+  if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){
+    appliedCoupon=null;const m=$("cpnMsg");if(m)m.textContent="Coupon removed because the items changed. Apply it again.";
+  }
+  const disc=appliedCoupon?appliedCoupon.discount:0;
+  $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,SHIP_FEE,sub-disc+SHIP_FEE,disc,appliedCoupon?appliedCoupon.code:"");
 }
 function drawCheckout(){
   $("cPanel").innerHTML=`<button class="x" id="cX">×</button><h3>Order Details</h3>
@@ -820,10 +905,14 @@ function drawCheckout(){
     <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
     <textarea class="field" id="cAddr" placeholder="House no., street, area / landmark"></textarea>
     <div id="cSum" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:6px 0 12px;font-size:14px;line-height:1.8"></div>
+    <div class="cpn"><input class="field" id="cCoupon" placeholder="Coupon code (if you have one)" autocomplete="off" maxlength="20"><button class="btn dark" id="cpnBtn" type="button">Apply</button></div>
+    <p class="note cpnMsg" id="cpnMsg"></p>
     <select class="field" id="cPay"><option value="ONLINE">Online Payment (UPI / Google Pay / PhonePe)</option></select>
     <button class="btn red" style="width:100%" id="placeBtn">Place Order</button>
     <p class="note">Mobile OTP verification will be added later.</p>`;
   $("cX").onclick=()=>$("ovCart").classList.remove("show");
+  appliedCoupon=null;
+  $("cpnBtn").onclick=applyCoupon;
   $("placeBtn").onclick=placeOrder;
   paintCheckoutSum();
 }
@@ -907,18 +996,20 @@ async function placeOrder(){
   const lines=buyLines();
   if(!lines.length){toast("Please select a size first");return}
   const btn=$("placeBtn");btn.disabled=true;btn.textContent="Placing order...";
+  if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){btn.disabled=false;btn.textContent="Place Order";paintCheckoutSum();toast("Please apply the coupon again");return}
   const items=lines.map(x=>({product_id:x.pid,colour:x.colour,size:String(x.size),qty:Number(x.qty)}));
+  const coupon=appliedCoupon?appliedCoupon.code:"";
   try{
-    const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items}});
+    const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items,coupon}});
     if(!res||!res.ok)throw new Error("FAILED");
     // ordered items leave the cart (only when the order came from the cart)
     if(checkFromCart)cart=cart.filter(c=>!lines.some(l=>l.pid===c.pid&&l.colour===c.colour&&l.size===c.size));
-    checkLines=[];checkFromCart=false;saveCart();renderCartCount();
+    checkLines=[];checkFromCart=false;appliedCoupon=null;saveCart();renderCartCount();
     rememberOrder(res.id,mobile);showTrackIcon();
     const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
     $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
       <p>Your order number: <b>${esc(res.id)}</b></p>
-      <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total)}</div>
+      <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total,Number(res.discount)||0,res.coupon||"")}</div>
       <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
       <p class="sub">Your bill (PDF) can be downloaded from Track order as soon as your payment is received.</p>
       ${payment==="ONLINE"?`<button class="btn red" id="payNow" style="width:100%;margin-bottom:8px">Pay now</button>`:""}
@@ -936,6 +1027,7 @@ async function placeOrder(){
     btn.disabled=false;btn.textContent="Place Order";
     const m=String(e.message||"");
     if(m.includes("STOCK")){toast("Stock has changed. Please select the item again");loadProducts()}
+    else if(m.includes("COUPON")){appliedCoupon=null;paintCheckoutSum();$("cpnMsg").textContent=couponErr(m);toast("Coupon could not be used. Please check it")}
     else if(m.includes("RATE_LIMIT"))toast("Too many orders. Please try again shortly");
     else if(m.includes("INVALID"))toast("Please check your details");
     else toast("Order could not be placed. Check your internet and try again");
@@ -1132,12 +1224,89 @@ function applySettings(){
 async function loadSettings(){
   try{
     const r=await fetch(SB_URL+"/rest/v1/site_settings?select=value&key=eq.site",{headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY}});
-    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){const keep={instagram:CONFIG.instagram,whatsapp:CONFIG.whatsapp,facebook:CONFIG.facebook};Object.assign(CONFIG,v);/* empty social links fall back to the defaults above */["instagram","whatsapp","facebook"].forEach(k=>{if(!String(CONFIG[k]||"").trim())CONFIG[k]=keep[k]});applySettings()}}
+    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){const keep={instagram:CONFIG.instagram,whatsapp:CONFIG.whatsapp,facebook:CONFIG.facebook};Object.assign(CONFIG,v);/* empty social links fall back to the defaults above */["instagram","whatsapp","facebook"].forEach(k=>{if(!String(CONFIG[k]||"").trim())CONFIG[k]=keep[k]});applySettings();renderSlides();setTimeout(renderOffer,1500)}}
   }catch(e){}
 }
 
 /* clicking the floating photo opens the product with that article code */
 $("heroArt").onclick=()=>{const code=String(CONFIG.heroArticle||"").trim().toLowerCase();if(!code)return;const pr=products.find(p=>String(p.article||"").trim().toLowerCase()===code);if(pr)openProduct(pr.id);else toast("Article "+code+" not found yet")};
+
+/* ---- home slider: the red top screen first, then the extra screens from the admin (CONFIG.slides) ---- */
+let slideIdx=0,slideCount=1,slideTimer=null,slideTx=null;
+function slideList(){
+  return (Array.isArray(CONFIG.slides)?CONFIG.slides:[]).filter(s=>s&&s.active!==false&&(s.url||s.title||s.text||s.article));
+}
+function slideProduct(article){
+  const code=String(article||"").trim().toLowerCase();
+  if(!code)return null;
+  return products.find(p=>String(p.article||"").trim().toLowerCase()===code)||null;
+}
+function renderSlides(){
+  const track=$("sTrack");if(!track)return;
+  track.querySelectorAll(".sCust").forEach(el=>el.parentElement.remove());
+  slideList().forEach(s=>{
+    const pr=slideProduct(s.article);
+    const media=s.url?(s.kind==="video"?`<video class="sMedia" src="${esc(s.url)}" muted loop playsinline preload="metadata"></video>`:`<img class="sMedia" src="${esc(s.url)}" alt="">`):"";
+    const prod=pr?`<div class="sProd" data-view="${esc(pr.id)}"><div class="sPhoto photo" data-src="${esc((pr.variants[0]&&pr.variants[0].media[0])||"")}"><span class="ph">👟</span></div><div class="sPName">${esc(pr.name)}</div><div class="price">${money(pr.price)}${pr.mrp>pr.price?`<s>${money(pr.mrp)}</s>`:""}${offLabel(pr)}</div></div>`:"";
+    const btn=pr?`<button class="btn heroCta" data-view="${esc(pr.id)}">Shop now</button>`:"";
+    const sec=document.createElement("div");sec.className="sSlide";
+    sec.innerHTML=`<section class="hero sCust">${media}<div class="sShade"></div><div class="wrap sInner"><div class="sText">${s.title?`<h1>${esc(s.title)}</h1>`:""}${s.text?`<p>${esc(s.text)}</p>`:""}${btn}</div>${prod}</div></section>`;
+    track.appendChild(sec);
+  });
+  slideCount=slideList().length+1;
+  $("sCtl").hidden=slideCount<2;
+  $("sDots").innerHTML=Array.from({length:slideCount},(_,i)=>`<button class="sDot" data-sd="${i}" type="button" aria-label="Screen ${i+1}"></button>`).join("");
+  hydrate();
+  goSlide(slideIdx);
+  startSlideTimer();
+}
+function goSlide(i){
+  slideIdx=((i%slideCount)+slideCount)%slideCount;
+  const t=$("sTrack");if(!t)return;
+  t.style.transform=`translateX(${-slideIdx*100}%)`;
+  document.querySelectorAll(".sDot").forEach((d,k)=>d.classList.toggle("on",k===slideIdx));
+  t.querySelectorAll(".sSlide").forEach((sl,k)=>{
+    sl.querySelectorAll("video.sMedia").forEach(v=>{
+      if(k===slideIdx){const p=v.play();if(p&&p.catch)p.catch(()=>{})}else v.pause();
+    });
+  });
+}
+function startSlideTimer(){clearInterval(slideTimer);if(slideCount>1)slideTimer=setInterval(()=>goSlide(slideIdx+1),6500)}
+$("sPrev").onclick=()=>{goSlide(slideIdx-1);startSlideTimer()};
+$("sNext").onclick=()=>{goSlide(slideIdx+1);startSlideTimer()};
+$("sDots").onclick=e=>{const b=e.target.closest("[data-sd]");if(b){goSlide(Number(b.dataset.sd));startSlideTimer()}};
+$("slider").addEventListener("touchstart",e=>{slideTx=e.touches[0].clientX},{passive:true});
+$("slider").addEventListener("touchend",e=>{
+  if(slideTx===null)return;
+  const dx=e.changedTouches[0].clientX-slideTx;slideTx=null;
+  if(Math.abs(dx)>40){goSlide(dx<0?slideIdx+1:slideIdx-1);startSlideTimer()}
+},{passive:true});
+
+/* ---- today's offer popup (admin: Today's offer). Closed once per browser; a new offer shows again ---- */
+const OFFER_KEY="sv8_offer_seen";
+function offerValueText(o){return o.kind==="percent"?`${Number(o.value)}% OFF`:`₹${Number(o.value)} OFF`}
+function renderOffer(){
+  const box=$("offerOv"),o=CONFIG.offer;
+  if(!box)return;
+  if(!o||!o.on||!String(o.code||"").trim()||!(Number(o.value)>0)){box.hidden=true;return}
+  const code=String(o.code).trim().toUpperCase();
+  const key=[code,o.title||"",o.kind||"",o.value,o.category||""].join("|");
+  let seen="";try{seen=localStorage.getItem(OFFER_KEY)||""}catch(e){}
+  if(seen===key)return;
+  $("offerBox").innerHTML=`<button class="x" id="offerX" aria-label="Close">×</button>
+    <div class="offerTag">${esc(o.title||"Today's offer")}</div>
+    <div class="offerBig">${esc(offerValueText(o))}</div>
+    ${o.text?`<p class="sub">${esc(o.text)}</p>`:""}
+    <div class="offerCode">${esc(code)}</div>
+    <p class="note">Type this code at checkout. Valid on ${o.category?esc(o.category)+" products":"all products"}.</p>
+    <div class="offerBtns"><button class="btn dark" id="offerCopy" type="button">Copy code</button><button class="btn red" id="offerShop" type="button">Shop now</button></div>`;
+  box.hidden=false;
+  const close=()=>{box.hidden=true;try{localStorage.setItem(OFFER_KEY,key)}catch(e){}};
+  $("offerX").onclick=close;
+  box.onclick=e=>{if(e.target===box)close()};
+  $("offerCopy").onclick=async()=>{try{await navigator.clipboard.writeText(code);toast("Code copied")}catch(e){toast("Code: "+code)}};
+  $("offerShop").onclick=()=>{close();document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"})};
+}
 
 /* ---- product rails ---- */
 function miniCard(p){
