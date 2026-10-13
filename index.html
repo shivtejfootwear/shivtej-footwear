@@ -468,7 +468,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 
   <section class="wrap film rv">
     <div class="filmBox" id="filmBox">
-      <video id="filmVid" playsinline muted loop autoplay preload="auto"></video>
+      <video id="filmVid" playsinline loop autoplay preload="auto"></video>
       <div class="filmCap" id="filmCap">Brand film</div>
     </div>
   </section>
@@ -1189,13 +1189,25 @@ function applyFilm(){
   if(CONFIG.filmVideo){
     if(fv.getAttribute("src")!==CONFIG.filmVideo)fv.src=CONFIG.filmVideo;
     if(CONFIG.filmPoster)fv.poster=CONFIG.filmPoster;
-    /* plays by itself like a GIF: muted, looping, no controls */
-    fv.muted=true;fv.loop=true;fv.autoplay=true;
+    /* plays by itself, looping, no controls, with sound */
+    fv.loop=true;fv.autoplay=true;
     fv.style.display="";
     $("filmCap").textContent="Brand film";
-    const pp=fv.play();if(pp&&pp.catch)pp.catch(()=>{});
+    playFilm(fv);
   }else{fv.style.display="none";$("filmCap").textContent="Brand film coming soon"}
   $("filmBox").classList.toggle("clickable",!!String(CONFIG.filmArticle||"").trim());
+}
+/* browsers allow sound only after the visitor touches the page. So the film tries with sound first;
+   if the browser blocks it, it plays muted and gets its sound on the visitor's first tap or click */
+function playFilm(fv){
+  fv.muted=false;
+  const p=fv.play();
+  if(p&&p.catch)p.catch(()=>{
+    fv.muted=true;
+    const pm=fv.play();if(pm&&pm.catch)pm.catch(()=>{});
+    const unmute=()=>{fv.muted=false;const q=fv.play();if(q&&q.catch)q.catch(()=>{fv.muted=true;fv.play().catch(()=>{})})};
+    ["pointerdown","keydown","touchend"].forEach(ev=>document.addEventListener(ev,unmute,{once:true,capture:true}));
+  });
 }
 function applySettings(){
   applyFilm();
