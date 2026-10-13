@@ -256,6 +256,8 @@ footer h5{margin:0 0 10px;color:#fff;text-transform:uppercase;font-size:13px;let
 footer a,footer button{display:block;color:#cfcfcf;background:none;border:0;padding:4px 0;font-size:14px;text-align:left}
 footer a:hover,footer button:hover{color:#fff}
 footer p{font-size:13px;line-height:1.6;margin:0}
+footer h5 a.mapLink{display:inline-flex;align-items:center;gap:6px;color:#fff;padding:0;font-size:inherit;text-transform:inherit;letter-spacing:inherit;text-decoration:none}
+footer h5 a.mapLink svg{flex:none}
 .sizeBar{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px;border-top:1px solid var(--line);padding-top:10px}
 .sizeBar::-webkit-scrollbar{display:none}
 .sizeBar>b{flex:0 0 auto;font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--mute);margin-right:4px}
@@ -524,7 +526,7 @@ footer p{font-size:13px;line-height:1.6;margin:0}
 
 <footer>
   <div class="wrap cols">
-    <div><h5>Shivtej Footwear</h5><p>Bajaj Finance, Opposite Site, Akluj 413101</p></div>
+    <div><h5><a class="mapLink" href="https://maps.app.goo.gl/nKQhfxH1355uFAmc8?g_st=ac" target="_blank" rel="noopener" aria-label="Open our location in Google Maps">Shivtej Footwear<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z" fill="#EA4335"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg></a></h5><p>Bajaj Finance, Opposite Site, Akluj 413101</p></div>
     <div><h5>Shop</h5><button data-go="All">All Products</button><button data-go="NEW">New Items</button><button data-go="Men">Men</button><button data-go="Ladies">Ladies</button><button data-go="Kids">Kids</button></div>
     <div><h5>Help</h5><button id="helpOrder">Order status</button><button id="helpSize">Size guide</button><button id="helpCont">Contact</button></div>
     <div><h5>Newsletter</h5><p>Get updates on new collections.</p><div style="display:flex;gap:6px;margin-top:8px"><input id="nlMail" type="email" placeholder="Email" style="flex:1;min-width:0;padding:10px 12px;border-radius:999px;border:1px solid #333;background:#161616;color:#fff"><button id="nlBtn" class="btn red" style="padding:10px 14px;font-size:11px">Join</button></div></div>
