@@ -237,6 +237,17 @@ textarea{min-height:70px;resize:vertical}
       </div>
       <div class="preview" id="filmPrev">No video</div>
       <div class="msg" id="filmMsg"></div>
+      <label class="f" for="filmArticle">Product article code (click on the film opens this product, optional)</label>
+      <input type="text" id="filmArticle" placeholder="6102">
+      <div class="hint">Type the article code exactly as in the product (e.g. 6102). If left empty, clicking the film does nothing.</div>
+    </div>
+
+    <!-- 4c home slider (swap screens) -->
+    <div class="card">
+      <h2><span class="sec-no">4c</span>Home slider (swap screens)</h2>
+      <div class="sub" style="margin-bottom:8px">The red top screen always comes first. Add up to 6 more screens. Each screen can have a photo or a short video (.mp4), a heading, a short text and a product (article code), which shows with a "Shop now" button. Screens swap by themselves and with arrows.</div>
+      <div id="slides"></div>
+      <div class="row" style="margin-top:12px"><button class="btn line" id="slideAdd" type="button">+ Add screen</button></div>
     </div>
 
     <!-- 5 links -->
@@ -296,6 +307,9 @@ function fillForm(){
   paintPreview("heroPrev",cfg.heroImage);
   paintPreview("bandPrev",cfg.bandImage);
   paintPreview("filmPrev",cfg.filmVideo);
+  $("filmArticle").value=cfg.filmArticle??"";
+  slidesUI=(Array.isArray(cfg.slides)?cfg.slides:[]).slice(0,6).map(s=>({url:s.url||"",title:s.title||"",text:s.text||"",article:s.article||"",active:s.active!==false}));
+  paintSlides();
 }
 function paintPreview(id,url){
   const el=$(id);el.innerHTML="";
@@ -327,10 +341,49 @@ function collect(){
     bandText:$("bandText").value.trim(),
     bandImage:cfg.bandImage||"",
     filmVideo:cfg.filmVideo||"",
+    filmArticle:$("filmArticle").value.trim(),
     instagram:$("instagram").value.trim(),
     facebook:$("facebook").value.trim(),
     whatsapp:$("whatsapp").value.replace(/[^0-9]/g,"")
   };
+}
+
+// ---------- home slider (swap screens) ----------
+const isVideoUrl=u=>/\.(mp4|webm)(\?|$)/i.test(String(u||""));
+let slidesUI=[];
+function paintSlides(){
+  const box=$("slides");box.innerHTML="";
+  slidesUI.forEach((s,i)=>{
+    const d=document.createElement("div");
+    d.className="slideRow";
+    d.style.cssText="border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin-top:12px";
+    d.innerHTML=
+      '<b>Screen '+(i+2)+'</b>'+
+      '<label class="check" style="margin-top:6px"><input type="checkbox" data-k="active"'+(s.active?' checked':'')+'> Show this screen</label>'+
+      '<label class="f">Photo or video (.mp4)</label>'+
+      '<div class="row"><input type="file" data-k="file" accept="image/*,video/mp4,video/webm"><button class="btn line" data-k="rm" type="button">Remove screen</button></div>'+
+      '<div class="preview" id="slPrev'+i+'"></div>'+
+      '<div class="msg" id="slMsg'+i+'"></div>'+
+      '<label class="f">Heading</label><input type="text" data-k="title" value="'+esc(s.title)+'">'+
+      '<label class="f">Short text</label><textarea data-k="text">'+esc(s.text)+'</textarea>'+
+      '<label class="f">Product article code (shows the product and a Shop now button)</label><input type="text" data-k="article" value="'+esc(s.article)+'" placeholder="6102">';
+    box.appendChild(d);
+    paintPreview("slPrev"+i,s.url);
+  });
+  $("slideAdd").disabled=slidesUI.length>=6;
+}
+// reads what is typed in the screens right now (keeps the text when a screen is added, removed or uploaded)
+function readSlides(){
+  const rows=[...$("slides").children];
+  return slidesUI.map((s,i)=>{
+    const row=rows[i];
+    if(!row)return s;
+    return {url:s.url,
+      title:row.querySelector('[data-k="title"]').value.trim(),
+      text:row.querySelector('[data-k="text"]').value.trim(),
+      article:row.querySelector('[data-k="article"]').value.trim(),
+      active:row.querySelector('[data-k="active"]').checked};
+  });
 }
 
 async function loadSettings(){
@@ -563,9 +616,28 @@ function boot(){
   $("filmFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;const u=await uploadMedia(f,"film","filmMsg");if(u){cfg.filmVideo=u;paintPreview("filmPrev",u)}};
   $("filmRemove").onclick=()=>{cfg.filmVideo="";paintPreview("filmPrev","");say("filmMsg","Video removed. Press Save.","ok")};
 
+  $("slideAdd").onclick=()=>{if(slidesUI.length>=6)return;slidesUI=readSlides();slidesUI.push({url:"",title:"",text:"",article:"",active:true});paintSlides()};
+  $("slides").addEventListener("change",async e=>{
+    if(e.target.dataset.k!=="file")return;
+    const i=[...$("slides").children].indexOf(e.target.closest(".slideRow"));
+    const f=e.target.files[0];if(!f||i<0)return;
+    const u=await uploadMedia(f,"slide","slMsg"+i);
+    if(!u)return;
+    slidesUI=readSlides();slidesUI[i].url=u;paintSlides();
+    say("slMsg"+i,"Uploaded. Press Save below.","ok");
+  });
+  $("slides").addEventListener("click",e=>{
+    if(e.target.dataset.k!=="rm")return;
+    const i=[...$("slides").children].indexOf(e.target.closest(".slideRow"));
+    if(i<0)return;
+    slidesUI=readSlides();slidesUI.splice(i,1);paintSlides();
+  });
+
   $("saveBtn").onclick=async()=>{
     $("saveBtn").disabled=true;say("saveMsg","Saving...");
-    const value=collect();
+    // merge with the saved settings, so things this page does not edit (today's offer, etc.) are kept
+    const value={...cfg,...collect()};
+    value.slides=readSlides().filter(s=>s.url||s.title||s.text||s.article).slice(0,6).map(s=>({kind:isVideoUrl(s.url)?"video":"photo",url:s.url,title:s.title,text:s.text,article:s.article,active:s.active}));
     const {error}=await sb.from("site_settings").upsert({key:"site",value,updated_at:new Date().toISOString()},{onConflict:"key"});
     $("saveBtn").disabled=false;
     if(error){say("saveMsg","Save failed: "+error.message,"err");return}
