@@ -680,7 +680,8 @@ function mapRow(r){
 async function loadProducts(){
   try{
     const rows=await rpc("site_list_products");
-    products=(Array.isArray(rows)?rows:[]).map(mapRow).filter(p=>p.variants.length);
+    // a product with no size in stock in any colour is hidden from the website (it comes back when stock is added)
+    products=(Array.isArray(rows)?rows:[]).map(mapRow).filter(p=>p.variants.some(v=>v.sizes.some(s=>s.qty>0)));
   }catch(e){
     products=[];
     toast("Products could not load yet. Please refresh in a moment.");
