@@ -100,7 +100,8 @@ button{cursor:pointer}
 .card.in{opacity:1;transform:none}
 .card:hover{transform:translateY(-4px);box-shadow:0 18px 36px rgba(0,0,0,.09);border-color:transparent}
 .photo{position:relative;aspect-ratio:4/3;background:var(--soft);display:grid;place-items:center;overflow:hidden}
-.photo img{width:100%;height:100%;object-fit:cover;transition:transform .5s}
+/* the whole shoe stays inside the frame (no cropping), on phone and desktop */
+.photo img{width:100%;height:100%;object-fit:contain;padding:4%;transition:transform .5s}
 .card:hover .photo img{transform:scale(1.05)}
 .photo .ph{font-size:44px;opacity:.35}
 .tag{position:absolute;left:10px;top:10px;background:var(--red);color:#fff;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;letter-spacing:.4px}
@@ -239,6 +240,8 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .film{margin-top:56px}
 .filmBox{position:relative;aspect-ratio:16/9;border-radius:24px;overflow:hidden;background:radial-gradient(120% 90% at 30% 0%,#2a2a2a,#0b0b0b);display:flex;align-items:center;justify-content:center;color:#fff}
 .filmBox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+/* sound button: the film always starts muted; the visitor turns the sound on or off here */
+.soundBtn{position:absolute;right:14px;bottom:12px;z-index:2;border:1px solid rgba(255,255,255,.55);background:rgba(0,0,0,.55);color:#fff;border-radius:999px;padding:8px 14px;font-size:12px;letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(4px)}
 .play{width:64px;height:64px;border-radius:50%;border:1px solid rgba(255,255,255,.4);display:grid;place-items:center;font-size:18px;cursor:pointer;transition:transform .3s;background:rgba(255,255,255,.06)}
 .filmBox:hover .play{transform:scale(1.08)}
 .filmCap{position:absolute;left:22px;bottom:18px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;opacity:.7}
@@ -470,8 +473,9 @@ footer h5 a.mapLink svg{flex:none}
 
   <section class="wrap film rv">
     <div class="filmBox" id="filmBox">
-      <video id="filmVid" playsinline loop autoplay preload="auto"></video>
+      <video id="filmVid" playsinline loop autoplay muted preload="auto"></video>
       <div class="filmCap" id="filmCap">Brand film</div>
+      <button type="button" class="soundBtn" id="filmSound">🔊 Turn sound on</button>
     </div>
   </section>
 
@@ -1200,28 +1204,30 @@ function applyFilm(){
     /* plays by itself, looping, no controls, with sound */
     fv.loop=true;fv.autoplay=true;
     fv.style.display="";
+    $("filmSound").style.display="";
     $("filmCap").textContent="Brand film";
     playFilm(fv);
-  }else{fv.style.display="none";$("filmCap").textContent="Brand film coming soon"}
+  }else{fv.style.display="none";$("filmSound").style.display="none";$("filmCap").textContent="Brand film coming soon"}
   $("filmBox").classList.toggle("clickable",!!String(CONFIG.filmArticle||"").trim());
 }
-/* browsers allow sound only after the visitor touches the page. So the film tries with sound first;
-   if the browser blocks it, it plays muted and gets its sound on the visitor's first tap or click */
+/* the film always opens MUTED. The visitor turns the sound on with the button, and off again the same way */
 function playFilm(fv){
-  fv.muted=false;
+  fv.muted=true;
   const p=fv.play();
-  if(p&&p.catch)p.catch(()=>{
-    fv.muted=true;
-    const pm=fv.play();if(pm&&pm.catch)pm.catch(()=>{});
-    /* every tap tries again until the sound is on */
-    const evs=["pointerdown","keydown","touchend","click"];
-    const unmute=()=>{
-      fv.muted=false;
-      Promise.resolve(fv.play()).then(()=>{evs.forEach(e=>document.removeEventListener(e,unmute,true))},()=>{fv.muted=true});
-    };
-    evs.forEach(e=>document.addEventListener(e,unmute,true));
-  });
+  if(p&&p.catch)p.catch(()=>{});
+  syncSoundBtn();
 }
+function syncSoundBtn(){
+  const fv=$("filmVid"),b=$("filmSound");
+  if(b)b.textContent=fv.muted?"🔊 Turn sound on":"🔇 Mute";
+}
+$("filmSound").onclick=e=>{
+  e.stopPropagation();          /* the film box itself opens the product, the button must not */
+  const fv=$("filmVid");
+  fv.muted=!fv.muted;
+  if(!fv.muted)fv.play().catch(()=>{});
+  syncSoundBtn();
+};
 function applySettings(){
   applyFilm();
   const lines=String(CONFIG.heroTitle||"").split("|").map(x=>x.trim()).filter(Boolean);
