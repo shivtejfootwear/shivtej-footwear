@@ -668,7 +668,9 @@ function mapRow(r){
     const imgs=(c&&Array.isArray(c.images)?c.images:[]).concat(Array.isArray(r.images)?r.images:[]);
     return {colour,sizes,media:imgs.filter(x=>typeof x==="string"&&x)};
   }).filter(v=>v.colour);
-  return {id:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:normCat(r.category),
+  // one product can be in more than one category (saved as "Men, Senior Men"); each name is a category of its own
+  const catList=String(r.category||"").split(",").map(normCat).filter(Boolean);
+  return {id:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:catList.join(", "),cats:catList,
     price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item,desc:r.description||"",variants};
 }
 async function loadProducts(){
@@ -688,10 +690,11 @@ const numSort=(a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0);
 const allSizes=()=>[...new Set(products.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
 const allColours=()=>[...new Set(products.flatMap(p=>p.variants.map(v=>v.colour)))].sort();
 const allBrands=()=>[...new Set(products.map(p=>p.brand).filter(Boolean))].sort();
-const allCats=()=>[...new Set(products.map(p=>p.category).filter(Boolean))].sort();
-/* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly */
+const allCats=()=>[...new Set(products.flatMap(p=>p.cats))].sort();
+/* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly.
+   A product with several categories appears under each of them. */
 const KIDS_CATS=["Kids","Boy","Girl"];
-const inCat=(p,cat)=>cat==="Kids"?KIDS_CATS.includes(p.category):p.category===cat;
+const inCat=(p,cat)=>cat==="Kids"?p.cats.some(c=>KIDS_CATS.includes(c)):p.cats.includes(cat);
 
 function match(p){
   // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
