@@ -662,8 +662,18 @@ async function photoUrl(name){
   }catch(e){return ""}
 }
 function normCat(s){return String(s||"").trim().toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}
+/* the NEW logo goes off by itself NEW_DAYS after the product was added (the date is never shown to customers) */
+const NEW_DAYS=120;
+function parseDate(v){
+  if(!v)return 0;
+  let s=String(v).replace(" ","T");
+  if(/[+-]\d{2}$/.test(s))s+=":00";
+  const t=Date.parse(s);
+  return isNaN(t)?0:t;
+}
 function mapRow(r){
   const cols=Array.isArray(r.colours)?r.colours:[];
+  const addedAt=parseDate(r.created_at);
   const variants=cols.map(c=>{
     const colour=(c&&typeof c==="object"?(c.name||c.colour||""):String(c||"")).trim();
     const sizes=(c&&Array.isArray(c.sizes)?c.sizes:[]).map(s=>typeof s==="object"
@@ -675,7 +685,7 @@ function mapRow(r){
   // one product can be in more than one category (saved as "Men, Senior Men"); each name is a category of its own
   const catList=String(r.category||"").split(",").map(normCat).filter(Boolean);
   return {id:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:catList.join(", "),cats:catList,
-    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item,desc:r.description||"",variants};
+    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item&&(!addedAt||Date.now()-addedAt<=NEW_DAYS*864e5),desc:r.description||"",variants};
 }
 async function loadProducts(){
   try{
