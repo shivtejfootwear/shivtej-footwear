@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /admin-v5.html
+Disallow: /shop-v5.html
+Disallow: /index-old.html
+
+Sitemap: https://shivtejfootwear.com/sitemap.xml
