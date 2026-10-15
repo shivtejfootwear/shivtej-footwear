@@ -222,14 +222,22 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .pchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .sec{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin:52px 0 16px}
 .sec h3{font-size:20px;font-weight:600;margin:0;letter-spacing:.01em}
-.rail{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 18px;scrollbar-width:none}
+/* products show as a grid that scrolls DOWN the page: 2 per row on phone, 4 per row on desktop */
+.rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px;padding:4px 0 12px}
+@media (min-width:860px){.rail{grid-template-columns:repeat(4,minmax(0,1fr));gap:26px 22px}}
 .rail::-webkit-scrollbar{display:none}
-.mini2{flex:0 0 min(64vw,250px);scroll-snap-align:start;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;cursor:pointer;transition:transform .3s,box-shadow .3s}
+.mini2{min-width:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;transition:transform .3s,box-shadow .3s}
 .mini2:hover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(0,0,0,.09)}
 .mini2 .photo{aspect-ratio:1/1}
 .mini2 .mb{padding:12px 14px 14px}
-.mini2 .name{font-size:15px;font-weight:600;margin:4px 0 6px;line-height:1.3;min-height:20px}
-.mini2 .price{font-size:15px;font-weight:600}
+.mini2 .name{font-size:14.5px;font-weight:600;margin:3px 0 6px;line-height:1.3;min-height:38px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mini2 .price{font-size:16px;font-weight:800;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
+.mini2 .price s{color:var(--mute);font-weight:500;font-size:12.5px}
+.mini2 .price .pOff{margin-left:0;font-size:11.5px}
+.mini2 .stock{font-size:12px;font-weight:700;color:#157347;margin-top:4px}
+.mini2 .stock.out{color:var(--mute)}
+.mini2 .photo .tag{font-size:10px;padding:3px 8px}
+@media (min-width:860px){.mini2 .name{font-size:15px}}
 .catRow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none}
 .catRow::-webkit-scrollbar{display:none}
 @media (min-width:700px){.catRow{gap:20px}}
@@ -1432,7 +1440,7 @@ function renderOffer(){
 function miniCard(p){
   const v=p.variants[0],out=totalOf(p)<=0;
   return `<article class="mini2" data-view="${esc(p.id)}"><div class="photo" data-src="${esc(v.media[0]||"")}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}</div>
-    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.name)}</div><div class="price">${money(p.price)}</div>${out?'<div class="stock out">Out of stock</div>':""}</div></article>`;
+    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.name)}</div><div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>${out?'<div class="stock out">Out of stock</div>':'<div class="stock">In stock</div>'}</div></article>`;
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[
@@ -1450,7 +1458,7 @@ function renderCatLogos(){
 function renderCatSections(){
   const seen=new Set();
   $("catSections").innerHTML=LOGO_CATS.filter(c=>{if(seen.has(c.match))return false;seen.add(c.match);return true}).map(c=>{
-    const list=products.filter(p=>inCat(p,c.match)).slice().sort((a,b)=>Number(b.newItem)-Number(a.newItem)).slice(0,6);
+    const list=products.filter(p=>inCat(p,c.match)).slice().sort((a,b)=>Number(b.newItem)-Number(a.newItem)).slice(0,8);
     return `<div class="catSec" id="${catKey(c.match)}">
       <div class="sec"><h3>${esc(c.section)}</h3><button class="more" data-go="${esc(c.match)}">View all →</button></div>
       <div class="rail">${list.length?list.map(miniCard).join(""):'<div class="empty" style="width:100%">No products in this category yet.</div>'}</div>
@@ -1460,7 +1468,7 @@ function renderCatSections(){
 function renderRails(){
   renderCatLogos();
   renderCatSections();
-  const nl=products.filter(p=>p.newItem).slice(0,6);
+  const nl=products.filter(p=>p.newItem).slice(0,8);
   $("newRail").innerHTML=nl.length?nl.map(miniCard).join(""):'<div class="empty" style="width:100%">No new items yet.</div>';
   hydrate();
 }
