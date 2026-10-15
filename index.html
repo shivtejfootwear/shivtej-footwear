@@ -958,6 +958,9 @@ function drawCheckout(){
   $("cpnBtn").onclick=applyCoupon;
   $("placeBtn").onclick=placeOrder;
   paintCheckoutSum();
+  // The order is for the logged-in number: fill it in and keep it as it is.
+  const me=getLogin();
+  if(me){const m=$("cMob");m.value=me.mobile;m.readOnly=true;const n=$("cName");if(!n.value)n.value=me.name||""}
 }
 /* ---------- online payment (Razorpay) ---------- */
 const canPayOnline=o=>{const v=String(o.payment_status||"").toLowerCase();return v.includes("pending")&&!v.includes("cod")&&!v.includes("paid")};
@@ -1027,60 +1030,95 @@ async function runPayment(id,mob,btn){
   }
 }
 
+const PLACE_MSG={STOCK:"Sorry, this size is out of stock now. Please check the cart and try again.",RATE_LIMIT:"Too many orders. Please try again shortly.",INVALID_DETAILS:"Please check your details.",INVALID_ITEMS:"Please select a size first.",NOT_ONLINE:"Please choose online payment.",GATEWAY:"Payment could not be started now. Please try again."};
+// Opens the Razorpay popup for a NEW order. Nothing is an order until the payment is received. Resolves "paid", "closed" or "failed".
+async function openNewPayment(j){
+  await loadRazorpay();
+  return new Promise(resolve=>{
+    const rz=new window.Razorpay({
+      key:j.key_id,amount:j.amount,currency:j.currency||"INR",name:j.name||"Shivtej Footwear",
+      description:"Shivtej Footwear order",order_id:j.razorpay_order_id,
+      prefill:{name:j.customer_name||"",contact:j.mobile||""},
+      theme:{color:"#E30613"},
+      handler:()=>resolve("paid"),
+      modal:{ondismiss:()=>resolve("closed")}
+    });
+    rz.on("payment.failed",()=>resolve("failed"));
+    rz.open();
+  });
+}
 async function placeOrder(){
-  if(!getLogin()){
+  const me=getLogin();
+  if(!me){
     pendingOrder=true;
     openLogin();
     toast("Please login with your mobile number to place the order");
     return;
   }
-  const name=$("cName").value.trim(),mobile=$("cMob").value.trim(),address=$("cAddr").value.trim(),payment=$("cPay").value;
+  const name=$("cName").value.trim(),address=$("cAddr").value.trim(),payment=$("cPay").value;
   const country=$("cCountry").value,state=$("cState").value,city=$("cCity").value.trim(),pincode=$("cPin").value.trim();
   if(!name||!address){toast("Please enter name and address");return}
-  if(!/^[6-9]\d{9}$/.test(mobile)){toast("Enter a valid 10-digit mobile number");return}
   if(country!=="India"){toast("Online orders are for India only right now. Please contact the shop on WhatsApp.");return}
   if(!state){toast("Please select your state");return}
   if(!city){toast("Please enter your city");return}
   if(!/^\d{6}$/.test(pincode)){toast("Enter a valid 6-digit pincode");return}
   const lines=buyLines();
   if(!lines.length){toast("Please select a size first");return}
-  const btn=$("placeBtn");btn.disabled=true;btn.textContent="Placing order...";
-  if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){btn.disabled=false;btn.textContent="Place Order";paintCheckoutSum();toast("Please apply the coupon again");return}
+  const btn=$("placeBtn");
+  const reset=()=>{btn.disabled=false;btn.textContent="Place Order"};
+  if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){reset();paintCheckoutSum();toast("Please apply the coupon again");return}
+  btn.disabled=true;btn.textContent="Opening payment...";
   const items=lines.map(x=>({product_id:x.pid,colour:x.colour,size:String(x.size),qty:Number(x.qty)}));
   const coupon=appliedCoupon?appliedCoupon.code:"";
+  // The server checks the login, the details and the stock, and opens the payment. No order is saved yet.
+  let j=null;
   try{
-    const res=await rpc("site_place_order",{p:{name,mobile,country,state,city,pincode,address,payment,items,coupon}});
-    if(!res||!res.ok)throw new Error("FAILED");
-    // ordered items leave the cart (only when the order came from the cart)
-    if(checkFromCart)cart=cart.filter(c=>!lines.some(l=>l.pid===c.pid&&l.colour===c.colour&&l.size===c.size));
-    checkLines=[];checkFromCart=false;appliedCoupon=null;saveCart();renderCartCount();
-    rememberOrder(res.id,mobile);showTrackIcon();
-    const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
-    $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
-      <p>Your order number: <b>${esc(res.id)}</b></p>
-      <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,res.subtotal,res.shipping,res.total,Number(res.discount)||0,res.coupon||"")}</div>
-      <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
-      <p class="sub">Your bill (PDF) can be downloaded from Track order as soon as your payment is received.</p>
-      ${payment==="ONLINE"?`<button class="btn red" id="payNow" style="width:100%;margin-bottom:8px">Pay now</button>`:""}
-      <button class="btn ${payment==="ONLINE"?"dark":"red"}" id="trackNow" style="width:100%">Track this order</button>
-      <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
-    $("fin").onclick=()=>$("ovCart").classList.remove("show");
-    $("trackNow").onclick=()=>{$("ovCart").classList.remove("show");openTrack()};
-    if(payment==="ONLINE"){
-      const pn=$("payNow");
-      pn.onclick=()=>runPayment(res.id,mobile,pn);
-      runPayment(res.id,mobile,pn);
+    const r=await fetch(SB_URL+"/functions/v1/create-payment",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({token:me.token,name,country,state,city,pincode,address,payment,items,coupon})});
+    j=await r.json().catch(()=>null);
+    if(!r.ok||!j||!j.razorpay_order_id){
+      const code=(j&&j.error)||"";
+      reset();
+      if(code==="NOT_LOGGED_IN"){saveLogin(null);toast("Please login again");openLogin();return}
+      if(code==="COUPON_INVALID"||code==="COUPON_NOT_FOR_CART"){appliedCoupon=null;paintCheckoutSum();$("cpnMsg").textContent=couponErr(code);toast("Coupon could not be used. Please check it");return}
+      if(code==="STOCK")loadProducts();
+      toast(PLACE_MSG[code]||"Order could not be started. Check your internet and try again");
+      return;
     }
-    loadProducts();
-  }catch(e){
-    btn.disabled=false;btn.textContent="Place Order";
-    const m=String(e.message||"");
-    if(m.includes("STOCK")){toast("Stock has changed. Please select the item again");loadProducts()}
-    else if(m.includes("COUPON")){appliedCoupon=null;paintCheckoutSum();$("cpnMsg").textContent=couponErr(m);toast("Coupon could not be used. Please check it")}
-    else if(m.includes("RATE_LIMIT"))toast("Too many orders. Please try again shortly");
-    else if(m.includes("INVALID"))toast("Please check your details");
-    else toast("Order could not be placed. Check your internet and try again");
+  }catch(e){reset();toast("Network problem. Check your internet and try again");return}
+  reset();
+  let result="failed";
+  try{result=await openNewPayment(j)}catch(e){}
+  if(result!=="paid"){toast("Payment not completed. Nothing has been ordered.");return}
+  // Paid: the server creates the order (SW number) when the payment is received.
+  btn.disabled=true;btn.textContent="Confirming payment...";
+  toast("Payment received. Confirming your order...");
+  let orderId="";
+  for(let i=0;i<30&&!orderId;i++){
+    await new Promise(res=>setTimeout(res,2000));
+    try{const id=await rpc("site_checkout_order",{p_rz:j.razorpay_order_id});if(typeof id==="string")orderId=id}catch(e){}
   }
+  // The items were paid for, so they leave the cart.
+  if(checkFromCart)cart=cart.filter(c=>!lines.some(l=>l.pid===c.pid&&l.colour===c.colour&&l.size===c.size));
+  checkLines=[];checkFromCart=false;appliedCoupon=null;saveCart();renderCartCount();
+  loadProducts();
+  if(!orderId){
+    $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Payment Received</h3>
+      <p>Your order number will show in Track order within a few minutes.</p>
+      <button class="btn dark" id="fin" style="width:100%">Continue Shopping</button></div>`;
+    $("fin").onclick=()=>$("ovCart").classList.remove("show");
+    return;
+  }
+  rememberOrder(orderId,me.mobile);showTrackIcon();
+  const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
+    <p>Your order number: <b>${esc(orderId)}</b></p>
+    <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,j.subtotal,j.shipping,j.total,Number(j.discount)||0,j.coupon||"")}</div>
+    <p class="sub">Keep this order number. You can track the order from the 📦 icon at the top.</p>
+    <p class="sub">Your bill (PDF) can be downloaded from Track order as soon as your payment is received.</p>
+    <button class="btn dark" id="trackNow" style="width:100%">Track this order</button>
+    <button class="btn dark" id="fin" style="width:100%;margin-top:8px">Continue Shopping</button></div>`;
+  $("fin").onclick=()=>$("ovCart").classList.remove("show");
+  $("trackNow").onclick=()=>{$("ovCart").classList.remove("show");openTrack()};
 }
 
 /* ---------- events ---------- */
