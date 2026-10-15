@@ -635,6 +635,12 @@ function cartCheckout(){
   checkLines=cart.map(c=>({pid:c.pid,colour:c.colour,size:c.size,qty:c.qty}));
   checkFromCart=true;
   $("ovBag").classList.remove("show");
+  if(!getLogin()){
+    pendingCheckout=true;
+    openLogin();
+    toast("Please login with your mobile number to buy");
+    return;
+  }
   drawCheckout();$("ovCart").classList.add("show");
 }
 
@@ -866,6 +872,13 @@ function buyNow(){
   if(pQty>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
   checkLines=[{pid:P.id,colour:pColour,size:pSize,qty:pQty}];checkFromCart=false;
   $("ovProduct").classList.remove("show");
+  if(!getLogin()){
+    // not logged in: mobile OTP login first, then the order details form opens
+    pendingCheckout=true;
+    openLogin();
+    toast("Please login with your mobile number to buy");
+    return;
+  }
   drawCheckout();$("ovCart").classList.add("show");
 }
 
@@ -890,6 +903,7 @@ function billHtml(rows,sub,ship,total,disc=0,code=""){
 /* coupon typed at checkout: applied to the items it was checked for (the server checks again when the order is placed) */
 let appliedCoupon=null;
 let pendingOrder=false;   // Place Order was pressed without a login: the order continues after login
+let pendingCheckout=false; // Buy was pressed without a login: the order details form opens after login
 const couponSig=lines=>lines.map(x=>`${x.pid}|${x.colour}|${x.size}|${x.qty}`).sort().join(";");
 function couponErr(m){
   return String(m||"").includes("COUPON_NOT_FOR_CART")?"This coupon is not for the items in your bill.":"This coupon code is not valid.";
@@ -1467,12 +1481,13 @@ function openLogin(){
           saveLogin({token:res.data.token,mobile:res.data.customer?.mobile||mob,name:res.data.customer?.name||""});
           $("ovLogin").classList.remove("show");toast("Logged in");
           if(pendingOrder){pendingOrder=false;placeOrder()}
+          else if(pendingCheckout){pendingCheckout=false;drawCheckout();$("ovCart").classList.add("show")}
         }else msg(OTP_MSG[res.error]||"Could not verify the code. Try again.");
       }catch(e){msg("Network problem. Check your internet and try again.")}
       $("lVerify").disabled=false;
     };
   }
-  $("lX").onclick=()=>{pendingOrder=false;$("ovLogin").classList.remove("show")};
+  $("lX").onclick=()=>{pendingOrder=false;pendingCheckout=false;$("ovLogin").classList.remove("show")};
   $("ovLogin").classList.add("show");
 }
 /* ---------- Your orders (separate section next to Login) ---------- */
