@@ -122,6 +122,9 @@ button{cursor:pointer}
 .price{font-weight:900;font-size:17px}
 .price s{color:var(--mute);font-weight:500;font-size:13px;margin-left:6px}
 .pOff{display:inline-block;margin-left:6px;font-size:12px;font-weight:800;color:#157347}
+.dots{display:flex;align-items:center;gap:5px;margin:0 0 8px;min-height:14px}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.2);flex:0 0 auto}
+.dots .more{font-size:11px;color:var(--mute);font-weight:700;margin-left:2px}
 .cpn{display:flex;gap:8px;margin:6px 0 2px}
 .cpn .field{flex:1;min-width:0;margin:0;text-transform:uppercase}
 .cpn .btn{flex:0 0 auto}
@@ -518,10 +521,12 @@ footer h5 a.mapLink svg{flex:none}
 
   <div class="shop">
     <aside class="filters">
-      <h4>Category</h4>
-      <div class="chips" id="fCat"></div>
       <h4>Brand</h4>
       <select id="fBrand"></select>
+      <h4 id="hType">Product type</h4>
+      <div class="chips" id="fType"></div>
+      <h4>Category</h4>
+      <div class="chips" id="fCat"></div>
       <h4>Size</h4>
       <select id="fSize"></select>
       <h4>Colour</h4>
@@ -586,7 +591,7 @@ const dispName=p=>[p.brand,p.article].filter(Boolean).join(" ")||p.name;
 const offLabel=p=>{const m=Number(p.mrp)||0,s=Number(p.price)||0;if(m<=s||m<=0)return"";return`<span class="pOff">${Math.round((m-s)/m*100)}% OFF</span>`};
 
 let products=[];
-const S={cat:"All",brand:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
+const S={cat:"All",brand:"",type:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
 /* ---------- cart: items stay for 5 minutes ---------- */
 // An item stays in the cart for 5 minutes after it was added, then it is removed by itself.
 // The cart does not hold stock: stock is cut only when the payment is received (see site_place_order).
@@ -710,7 +715,7 @@ function mapRow(r){
   // one product can be in more than one category (saved as "Men, Senior Men"); each name is a category of its own
   const catList=String(r.category||"").split(",").map(normCat).filter(Boolean);
   return {id:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:catList.join(", "),cats:catList,
-    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item&&(!addedAt||Date.now()-addedAt<=NEW_DAYS*864e5),desc:r.description||"",variants};
+    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item&&(!addedAt||Date.now()-addedAt<=NEW_DAYS*864e5),desc:r.description||"",type:String(r.product_type||"").trim(),variants};
 }
 async function loadProducts(){
   try{
@@ -730,6 +735,19 @@ const numSort=(a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0);
 const allSizes=()=>[...new Set(products.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
 const allColours=()=>[...new Set(products.flatMap(p=>p.variants.map(v=>v.colour)))].sort();
 const allBrands=()=>[...new Set(products.map(p=>p.brand).filter(Boolean))].sort();
+const allTypes=()=>[...new Set(products.map(p=>p.type).filter(Boolean))].sort();
+/* colour dots on the product card (like Amazon): one dot per colour; the name is shown on hover */
+const COLOUR_HEX={red:"#c62828","लाल":"#c62828",blue:"#1e63c8","नीला":"#1e63c8","नीले":"#1e63c8",navy:"#1f2f5a","नेवी":"#1f2f5a",
+  brown:"#7b4a2a","ब्राउन":"#7b4a2a","भूरा":"#7b4a2a",olive:"#6b7a2a","ऑलिव":"#6b7a2a","ऑलिव्ह":"#6b7a2a",black:"#111111","काला":"#111111",
+  white:"#ffffff","सफ़ेद":"#ffffff","सफेद":"#ffffff",grey:"#8a8a8a",gray:"#8a8a8a","ग्रे":"#8a8a8a",green:"#2e8b57","हरा":"#2e8b57",
+  yellow:"#f2c200","पीला":"#f2c200",maroon:"#800000","मैरून":"#800000",pink:"#e77fa6","गुलाबी":"#e77fa6",orange:"#f08a24","नारंगी":"#f08a24",
+  beige:"#d8c3a5","बेज":"#d8c3a5",tan:"#c69c6d",cream:"#f3e9d2","क्रीम":"#f3e9d2",purple:"#7b3fa0","बैंगनी":"#7b3fa0",gold:"#d4a017","सुनहरा":"#d4a017",silver:"#bfc3c8","चांदी":"#bfc3c8"};
+function dotsHtml(p){
+  const cols=p.variants.map(v=>v.colour).filter(Boolean);
+  if(!cols.length)return "";
+  const shown=cols.slice(0,6).map(c=>`<span class="dot" title="${esc(c)}" style="background:${COLOUR_HEX[c.trim().toLowerCase()]||"#c9c9c9"}"></span>`).join("");
+  return `<div class="dots">${shown}${cols.length>6?`<span class="more">+${cols.length-6}</span>`:""}</div>`;
+}
 const allCats=()=>[...new Set(products.flatMap(p=>p.cats))].sort();
 /* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly.
    A product with several categories appears under each of them. */
@@ -742,10 +760,11 @@ function match(p){
   if(S.cat!=="All"&&S.cat!=="NEW"&&!inCat(p,S.cat))return false;
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
+  if(S.type&&p.type!==S.type)return false;
   if(S.priceMin!=null&&(p.price<S.priceMin||p.price>S.priceMax))return false;
   if(S.colour&&!p.variants.some(v=>v.colour===S.colour))return false;
   if(S.size&&!p.variants.some(v=>v.sizes.some(s=>s.size===S.size&&s.qty!==0)))return false;
-  if(words.length){const t=[p.name,p.article,p.brand,p.category,...p.variants.map(v=>v.colour)].join(" ").toLowerCase();if(!words.every(w=>t.includes(w)))return false}
+  if(words.length){const t=[p.name,p.article,p.brand,p.type,p.category,...p.variants.map(v=>v.colour)].join(" ").toLowerCase();if(!words.every(w=>t.includes(w)))return false}
   return true;
 }
 
@@ -773,6 +792,9 @@ function paintPrice(){
 function buildFilters(){
   const cats=allCats();
   $("fCat").innerHTML=["All",...cats].map(c=>`<button class="chip ${S.cat===c?"on":""}" data-cat="${esc(c)}">${esc(c==="All"?"All":c)}</button>`).join("");
+  const types=allTypes();
+  $("fType").innerHTML=["",...types].map(t=>`<button class="chip ${S.type===t?"on":""}" data-type="${esc(t)}">${esc(t||"All")}</button>`).join("");
+  $("hType").style.display=$("fType").style.display=types.length?"":"none";
   $("fBrand").innerHTML='<option value="">All Brands</option>'+allBrands().map(b=>`<option ${S.brand===b?"selected":""}>${esc(b)}</option>`).join("");
   $("fSize").innerHTML='<option value="">All Sizes</option>'+allSizes().map(s=>`<option ${S.size===s?"selected":""}>${esc(s)}</option>`).join("");
   $("fColor").innerHTML='<option value="">All Colours</option>'+allColours().map(c=>`<option ${S.colour===c?"selected":""}>${esc(c)}</option>`).join("");
@@ -791,6 +813,7 @@ function cardHtml(p,i){
     <div class="body">
       <div class="brand">${esc(p.brand)}</div>
       <div class="name">${esc(p.article||p.name)}</div>
+      ${dotsHtml(p)}
       <div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>
       <div class="sizes">${sizes}</div>
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
@@ -818,7 +841,8 @@ function render(){
   $("grid").innerHTML=list.length?list.map(cardHtml).join(""):'<div class="empty">No products match this filter.</div>';
   hydrate();
   revealCards();
-  document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("on",c.dataset.cat===S.cat));
+  document.querySelectorAll(".chip[data-cat]").forEach(c=>c.classList.toggle("on",c.dataset.cat===S.cat));
+  document.querySelectorAll(".chip[data-type]").forEach(c=>c.classList.toggle("on",c.dataset.type===S.type));
 }
 /* one photo per product card: a card gets its photo only once (render runs many times, and used to add a copy each time) */
 function hydrate(){
@@ -1156,6 +1180,8 @@ document.addEventListener("click",e=>{
   if(sz){S.size=S.size===sz.dataset.size?"":sz.dataset.size;buildFilters();render();document.querySelector(".shopHead").scrollIntoView({behavior:"smooth",block:"start"});return}
   const cat=e.target.closest("[data-cat]");
   if(cat){S.cat=cat.dataset.cat==="All"?"All":cat.dataset.cat;S.size="";buildFilters();render();return}
+  const ty=e.target.closest("[data-type]");
+  if(ty){S.type=ty.dataset.type;buildFilters();render();return}
   const jump=e.target.closest("[data-jump]");
   if(jump){document.getElementById(jump.dataset.jump)?.scrollIntoView({behavior:"smooth",block:"start"});return}
   const view=e.target.closest("[data-view]");
@@ -1236,7 +1262,7 @@ $("fColor").onchange=e=>{S.colour=e.target.value;render()};
 $("pMin").oninput=()=>{if(+$("pMin").value>+$("pMax").value)$("pMin").value=$("pMax").value;paintPrice();render()};
 $("pMax").oninput=()=>{if(+$("pMax").value<+$("pMin").value)$("pMax").value=$("pMin").value;paintPrice();render()};
 $("fNew").onchange=e=>{S.newOnly=e.target.checked;render()};
-$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
+$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",type:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("ovProduct").classList.remove("show");$("ovCart").classList.remove("show");$("ovBag").classList.remove("show")}});
 
 $("grid").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
@@ -1442,7 +1468,7 @@ function renderOffer(){
 function miniCard(p){
   const v=p.variants[0],out=totalOf(p)<=0;
   return `<article class="mini2" data-view="${esc(p.id)}"><div class="photo" data-src="${esc(v.media[0]||"")}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}</div>
-    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.article||p.name)}</div><div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>${out?'<div class="stock out">Out of stock</div>':'<div class="stock">In stock</div>'}</div></article>`;
+    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.article||p.name)}</div>${dotsHtml(p)}<div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>${out?'<div class="stock out">Out of stock</div>':'<div class="stock">In stock</div>'}</div></article>`;
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[
