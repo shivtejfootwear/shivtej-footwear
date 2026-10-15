@@ -580,6 +580,8 @@ const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN");
+/* product title everywhere on the site: brand + article only (the product name is no longer shown) */
+const dispName=p=>[p.brand,p.article].filter(Boolean).join(" ")||p.name;
 /* "X% OFF" label for MRP vs selling price (empty when there is no discount) */
 const offLabel=p=>{const m=Number(p.mrp)||0,s=Number(p.price)||0;if(m<=s||m<=0)return"";return`<span class="pOff">${Math.round((m-s)/m*100)}% OFF</span>`};
 
@@ -630,7 +632,7 @@ function drawBag(){
   $("bPanel").innerHTML=`<button class="x" id="bX">×</button><h3>Cart</h3>
     <p class="sub">Items stay in your cart for 5 minutes. Stock is updated only after your payment is received.</p>
     ${rows.length?rows.map(({c,i,p})=>`<div class="bLine">
-        <div class="bInfo"><b>${esc(p.name)}</b>
+        <div class="bInfo"><b>${esc(dispName(p))}</b>
           <div class="note">${esc(c.colour)} · Size ${esc(c.size)} · ${money(p.price)}</div>
           <div class="note">Stays ${Math.ceil(cartLeft(c)/60e3)} min more</div></div>
         <div class="qty"><button data-bm="${i}">−</button><span>${c.qty}</span><button data-bp="${i}">+</button></div>
@@ -787,8 +789,8 @@ function cardHtml(p,i){
     <div class="photo" data-src="${esc(src)}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}
       <button class="heart" aria-label="Wishlist">♡</button></div>
     <div class="body">
-      <div class="brand">${esc(p.brand)}${p.article?" · "+esc(p.article):""}</div>
-      <div class="name">${esc(p.name)}</div>
+      <div class="brand">${esc(p.brand)}</div>
+      <div class="name">${esc(p.article||p.name)}</div>
       <div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>
       <div class="sizes">${sizes}</div>
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
@@ -857,8 +859,8 @@ function drawProduct(){
     ${gal.length>1?`<div class="pdpThumbs">${gal.map((m,i)=>`<button class="gt ${i===pGi?"on":""}" data-gi="${i}" data-tsrc="${esc(m)}" aria-label="Photo ${i+1}"></button>`).join("")}</div>`:""}
     <div class="pHero" data-psrc="${esc(cur)}"><span class="ph">👟</span>${gal.length>1?`<button class="pArr pArrL" data-pg="-1" aria-label="Previous photo">‹</button><button class="pArr pArrR" data-pg="1" aria-label="Next photo">›</button>`:""}</div>
     <div class="pdpInfo">
-    <div class="brand">${esc(P.brand)}${P.article?" · Article "+esc(P.article):""}</div>
-    <h3>${esc(P.name)}</h3>
+    <div class="brand">${esc(P.brand)}</div>
+    <h3>${esc(dispName(P))}</h3>
     <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}${offLabel(P)}</div>
     ${P.desc?`<p class="sub">${esc(P.desc)}</p>`:""}
     <div class="lab">Colour</div>
@@ -944,7 +946,7 @@ async function applyCoupon(){
 }
 function paintCheckoutSum(){
   const lines=buyLines();
-  const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
   const sub=rows.reduce((n,r)=>n+r.amount,0);
   if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){
     appliedCoupon=null;const m=$("cpnMsg");if(m)m.textContent="Coupon removed because the items changed. Apply it again.";
@@ -1126,7 +1128,7 @@ async function placeOrder(){
     return;
   }
   rememberOrder(orderId,me.mobile);showTrackIcon();
-  const rows=lines.map(x=>({name:x.p.name,colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
   $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
     <p>Your order number: <b>${esc(orderId)}</b></p>
     <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,j.subtotal,j.shipping,j.total,Number(j.discount)||0,j.coupon||"")}</div>
@@ -1210,7 +1212,7 @@ function suggest(){
     html=sgSec("Brands",brands.map(b=>sgItem(b,"",`data-term="${esc(b)}"`)))
       +sgSec("Articles",arts.map(a=>sgItem(a,"",`data-term="${esc(a)}"`)))
       +sgSec("Colours",cols.map(c=>sgItem(c,"",`data-term="${esc(c)}"`)))
-      +sgSec("Products",prods.map(p=>sgItem(p.name,p.brand,`data-pid="${esc(p.id)}"`)));
+      +sgSec("Products",prods.map(p=>sgItem(dispName(p),p.brand,`data-pid="${esc(p.id)}"`)));
     if(!html)html=`<div class="sgHead">No match for "${esc(S.q.trim())}"</div>`;
   }
   sg.innerHTML=html;
@@ -1440,7 +1442,7 @@ function renderOffer(){
 function miniCard(p){
   const v=p.variants[0],out=totalOf(p)<=0;
   return `<article class="mini2" data-view="${esc(p.id)}"><div class="photo" data-src="${esc(v.media[0]||"")}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}</div>
-    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.name)}</div><div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>${out?'<div class="stock out">Out of stock</div>':'<div class="stock">In stock</div>'}</div></article>`;
+    <div class="mb"><div class="brand">${esc(p.brand)}</div><div class="name">${esc(p.article||p.name)}</div><div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>${out?'<div class="stock out">Out of stock</div>':'<div class="stock">In stock</div>'}</div></article>`;
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[

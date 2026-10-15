@@ -135,7 +135,8 @@ async function savePhotos(cfg, products) {
 }
 
 function pageHtml(p) {
-  const head = [p.brand, p.name, p.article].filter(Boolean).join(" ");
+  // Title = brand + article only (the product name is no longer used). Falls back to the name if there is no article.
+  const head = [p.brand, p.article || p.name].filter(Boolean).join(" ");
   const url = `${SITE}/p/${p.slug}.html`;
   const title = `${head} | Shivtej Footwear, Akluj`;
   const metaDesc = `Buy ${head} online from Shivtej Footwear, Akluj. ${p.price ? rupees(p.price) + ". " : ""}${p.inStock ? `Sizes: ${p.sizes.join(", ")}.` : "Check the website for stock."}`.slice(0, 158);
@@ -224,7 +225,7 @@ async function main() {
   // Safety: an empty or failed read must never delete the existing pages.
   if (!Array.isArray(rows) || rows.length === 0) throw new Error("No products returned; existing pages were not changed");
 
-  const products = rows.map(toProduct).filter((p) => p.id && p.name);
+  const products = rows.map(toProduct).filter((p) => p.id && (p.name || p.article));
   assignSlugs(products);
 
   if (!NO_PHOTOS) await savePhotos(cfg, products);
