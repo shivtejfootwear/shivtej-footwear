@@ -175,7 +175,8 @@ function pageHtml(p) {
 <meta name="description" content="${esc(metaDesc)}">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="${esc(url)}">
-<link rel="icon" href="/favicon.png">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <meta property="og:type" content="product">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(metaDesc)}">
