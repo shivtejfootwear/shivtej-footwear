@@ -135,6 +135,8 @@ button{cursor:pointer}
 .shipBox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0 10px;font-size:14px}
 .shipBox .h{display:block;margin-bottom:4px}
 .shipHint{display:block;margin-bottom:4px;color:#a00000;font-weight:700;font-size:14px;line-height:1.35}
+.shipFast{color:#1a56c4;white-space:nowrap}
+.shipLogo{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12.5px;letter-spacing:.3px}
 .shipOpt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;margin-top:6px;font:inherit;color:var(--ink);cursor:pointer}
 .shipOpt.on{border-color:var(--ink);box-shadow:0 0 0 2px rgba(17,17,17,.08)}
 .shipOpt .r{width:18px;height:18px;border-radius:50%;border:2px solid #bbb;flex:0 0 auto}
@@ -1021,13 +1023,20 @@ async function loadRates(){
   shipRates=list;shipPick=list[0]||null;
   paintShip();paintCheckoutSum();
 }
+// Small round badge with the courier's short name (not the company's logo).
+const SHIP_BADGE=[["india post","IP","#c62828"],["blue dart","BD","#1f4fa3"],["delhivery","DL","#263238"],["shadowfax","SF","#2e7d32"],["xpressbees","XB","#ef6c00"],["ekart","EK","#6a1b9a"],["dtdc","DT","#b71c1c"],["ecom","EC","#00838f"],["amazon","AM","#37474f"],["smartr","SM","#5d4037"]];
+function shipBadge(name){
+  const n=String(name||"").toLowerCase(),hit=SHIP_BADGE.find(x=>n.includes(x[0]));
+  const t=hit?hit[1]:(n.match(/[a-z]+/g)||["?"]).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  return `<span class="shipLogo" style="background:${hit?hit[2]:"#546e7a"}">${esc(t)}</span>`;
+}
 function paintShip(){
   const box=$("cShip");if(!box)return;
   if(shipRates===null){box.innerHTML='<b class="h">Courier</b><span class="note">Enter your pincode to see couriers, their price and delivery days.</span>';return}
   if(shipRates==="loading"){box.innerHTML='<b class="h">Courier</b><span class="note">Finding couriers for your pincode...</span>';return}
   if(!shipRates.length){box.innerHTML=`<b class="h">Courier</b><span class="note">Courier prices could not be loaded for this pincode right now. Shipping ${money(SHIP_FEE)}, and the shop chooses the courier.</span>`;return}
   const show=shipAll?shipRates:shipRates.slice(0,6);
-  box.innerHTML='<b class="h">Choose your courier</b><span class="shipHint">You know your area best: pick the courier you trust to deliver there.</span>'+show.map(c=>`<button type="button" class="shipOpt ${shipPick&&shipPick.courier_id===c.courier_id?"on":""}" data-ship="${esc(c.courier_id)}"><span class="r"></span><span class="n">${esc(c.name)}${c.tag==="cheapest"?'<span class="shipTag">Cheapest</span>':c.tag==="fastest"?'<span class="shipTag fast">Fastest</span>':""}<small>${c.days?`Delivery in about ${c.days} day${c.days>1?"s":""}`:"Delivery days not given"}${c.etd?` · by ${esc(c.etd)}`:""}</small></span><span class="p">${money(c.rate)}</span></button>`).join("")
+  box.innerHTML='<b class="h">Choose your courier</b><span class="shipHint">You know your area best: pick the courier you trust to deliver there. <span class="shipFast">Need it fast? Choose Fastest.</span></span>'+show.map(c=>`<button type="button" class="shipOpt ${shipPick&&shipPick.courier_id===c.courier_id?"on":""}" data-ship="${esc(c.courier_id)}"><span class="r"></span>${shipBadge(c.name)}<span class="n">${esc(c.name)}${c.tag==="cheapest"?'<span class="shipTag">Cheapest</span>':c.tag==="fastest"?'<span class="shipTag fast">Fastest</span>':""}<small>${c.days?`Delivery in about ${c.days} day${c.days>1?"s":""}`:"Delivery days not given"}${c.etd?` · by ${esc(c.etd)}`:""}</small></span><span class="p">${money(c.rate)}</span></button>`).join("")
     +(shipRates.length>6&&!shipAll?`<button type="button" class="shipMore" data-shipall="1">See all ${shipRates.length} couriers</button>`:"");
 }
 const COUNTRIES=["India","Nepal","Bhutan","Bangladesh","Sri Lanka","UAE","USA","UK","Canada","Australia","Other"];
