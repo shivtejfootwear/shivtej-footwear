@@ -157,6 +157,9 @@ button{cursor:pointer}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes slide{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
 .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:26px;line-height:1}
+.card{cursor:pointer}
+.pShare{position:absolute;right:56px;top:10px;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);display:grid;place-items:center;z-index:2;padding:0}
+.pShare svg{width:18px;height:18px}
 .panel h3{margin:0 0 4px;font-size:22px;font-weight:900;text-transform:uppercase}
 .sub{color:var(--mute);font-size:14px;margin-bottom:14px}
 .lab{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin:16px 0 8px}
@@ -618,7 +621,7 @@ function addToCart(){
   if(ex){ex.qty=want;ex.at=Date.now()}
   else cart.push({pid:P.id,colour:pColour,size:pSize,qty:pQty,at:Date.now()});
   saveCart();renderCartCount();
-  $("ovProduct").classList.remove("show");
+  closeProduct();
   toast("Added to cart. It stays here for 5 minutes.");
 }
 function bumpCart(i,d){
@@ -727,6 +730,7 @@ async function loadProducts(){
     toast("Products could not load yet. Please refresh in a moment.");
   }
   buildFilters();render();renderRails();renderSlides();
+  openFromLink();
 }
 
 /* ---------- helpers ---------- */
@@ -807,7 +811,7 @@ function cardHtml(p,i){
   const out=totalOf(p)<=0;
   const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(s.size)}</span>`).join("");
   const src=v.media[0]||"";
-  return `<article class="card" style="transition-delay:${Math.min(i*40,300)}ms" data-pid="${esc(p.id)}">
+  return `<article class="card" style="transition-delay:${Math.min(i*40,300)}ms" data-pid="${esc(p.id)}" data-view="${esc(p.id)}">
     <div class="photo" data-src="${esc(src)}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}
       <button class="heart" aria-label="Wishlist">♡</button></div>
     <div class="body">
@@ -818,7 +822,6 @@ function cardHtml(p,i){
       <div class="sizes">${sizes}</div>
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
       <div class="acts">
-        <button class="btn line" data-view="${esc(p.id)}">View</button>
         <button class="btn dark" data-view="${esc(p.id)}" ${out?"disabled":""}>Buy</button>
       </div>
     </div></article>`;
@@ -867,7 +870,40 @@ function openProduct(id){
   P=products.find(p=>p.id===id);if(!P)return;
   pColour=P.variants[0].colour;pSize="";pQty=1;pGi=0;
   drawProduct();$("ovProduct").classList.add("show");
+  pvOpenState(id);
   const pp=$("pPanel");pp.classList.add("enter");clearTimeout(pp._t);pp._t=setTimeout(()=>pp.classList.remove("enter"),1400);
+}
+/* Back button: opening a product adds one step to the browser history (address ?p=<id>),
+   so the phone's Back button closes the product and the shop stays open, instead of leaving the website. */
+function pvOpenState(id){
+  const st={sfp:id},addr="?p="+encodeURIComponent(id);
+  if(history.state&&history.state.sfp)history.replaceState(st,"",addr);
+  else history.pushState(st,"",addr);
+}
+function closeProduct(){
+  $("ovProduct").classList.remove("show");
+  if(history.state&&history.state.sfp)history.back();
+}
+window.addEventListener("popstate",()=>{$("ovProduct").classList.remove("show")});
+/* Share: the phone's own share menu (WhatsApp, etc.); on a computer the link is copied */
+async function shareProduct(){
+  if(!P)return;
+  const url=location.origin+location.pathname+"?p="+encodeURIComponent(P.id);
+  const title=dispName(P);
+  const text=`${title} - ${money(P.price)}\nShivtej Footwear, Akluj`;
+  if(navigator.share){try{await navigator.share({title,text,url})}catch(e){}return}
+  try{await navigator.clipboard.writeText(url);toast("Link copied. Paste it in WhatsApp to share.")}
+  catch(e){window.prompt("Copy this link:",url)}
+}
+/* A shared link (?p=<id>) opens that product once the products have loaded; Back then shows the shop */
+let linkOpened=false;
+function openFromLink(){
+  if(linkOpened)return;linkOpened=true;
+  const id=new URLSearchParams(location.search).get("p");
+  if(!id)return;
+  history.replaceState(null,"",location.pathname);
+  if(products.some(p=>p.id===id))openProduct(id);
+  else toast("This product is not available right now.");
 }
 function curVariant(){return P.variants.find(v=>v.colour===pColour)||P.variants[0]}
 function drawProduct(){
@@ -879,6 +915,7 @@ function drawProduct(){
   if(pGi>=gal.length)pGi=0;
   const cur=gal[pGi]||"";
   $("pPanel").innerHTML=`<button class="x" id="pX">×</button>
+    <button class="pShare" id="pShare" aria-label="Share this product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></button>
     <div class="pdp ${gal.length>1?"":"single"}">
     ${gal.length>1?`<div class="pdpThumbs">${gal.map((m,i)=>`<button class="gt ${i===pGi?"on":""}" data-gi="${i}" data-tsrc="${esc(m)}" aria-label="Photo ${i+1}"></button>`).join("")}</div>`:""}
     <div class="pHero" data-psrc="${esc(cur)}"><span class="ph">👟</span>${gal.length>1?`<button class="pArr pArrL" data-pg="-1" aria-label="Previous photo">‹</button><button class="pArr pArrR" data-pg="1" aria-label="Next photo">›</button>`:""}</div>
@@ -896,7 +933,8 @@ function drawProduct(){
     <div class="row" style="display:grid;gap:8px"><button class="btn line" id="cartBtn" ${pSize?"":"disabled"}>Add to cart</button><button class="btn red" id="addBtn" ${pSize?"":"disabled"}>Buy now</button></div>
     <p class="note">${pSize?(avail!=null?"Only "+avail+" pcs available in this size.":""):"Select a size first"}</p>
     </div></div>`;
-  $("pX").onclick=()=>$("ovProduct").classList.remove("show");
+  $("pX").onclick=closeProduct;
+  $("pShare").onclick=shareProduct;
   const ph=$("pPanel").querySelector("[data-psrc]");if(ph&&ph.dataset.psrc){photoUrl(ph.dataset.psrc).then(url=>{if(!url||!ph.isConnected)return;const im=new Image();im.alt="";im.onload=()=>{ph.querySelector(".ph")?.remove();ph.prepend(im)};im.src=url}).catch(()=>{})}
   $("qM").onclick=()=>{pQty=Math.max(1,pQty-1);drawProduct()};
   $("qP").onclick=()=>{const max=Math.min(10,avail??10);pQty=Math.min(max,pQty+1);drawProduct()};
@@ -914,7 +952,7 @@ function buyNow(){
   if(!row){toast("Select a size");return}
   if(pQty>row.qty){toast("Low stock. Only "+row.qty+" pcs left in this size");return}
   checkLines=[{pid:P.id,colour:pColour,size:pSize,qty:pQty}];checkFromCart=false;
-  $("ovProduct").classList.remove("show");
+  closeProduct();
   if(!getLogin()){
     // not logged in: mobile OTP login first, then the order details form opens
     pendingCheckout=true;
@@ -1184,10 +1222,11 @@ document.addEventListener("click",e=>{
   if(ty){S.type=ty.dataset.type;buildFilters();render();return}
   const jump=e.target.closest("[data-jump]");
   if(jump){document.getElementById(jump.dataset.jump)?.scrollIntoView({behavior:"smooth",block:"start"});return}
+  if(e.target.closest(".heart"))return;
   const view=e.target.closest("[data-view]");
   if(view){openProduct(view.dataset.view);return}
 });
-["ovProduct","ovCart","ovBag"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id)$(id).classList.remove("show")}));
+["ovProduct","ovCart","ovBag"].forEach(id=>$(id).addEventListener("click",ev=>{if(ev.target.id===id){if(id==="ovProduct")closeProduct();else $(id).classList.remove("show")}}));
 $("loginBtn").onclick=openLogin;
 $("ordersBtn").onclick=openOrders;
 $("ovOrders").addEventListener("click",ev=>{if(ev.target.id==="ovOrders")$("ovOrders").classList.remove("show")});
@@ -1263,7 +1302,7 @@ $("pMin").oninput=()=>{if(+$("pMin").value>+$("pMax").value)$("pMin").value=$("p
 $("pMax").oninput=()=>{if(+$("pMax").value<+$("pMin").value)$("pMax").value=$("pMin").value;paintPrice();render()};
 $("fNew").onchange=e=>{S.newOnly=e.target.checked;render()};
 $("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",type:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){$("ovProduct").classList.remove("show");$("ovCart").classList.remove("show");$("ovBag").classList.remove("show")}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("ovProduct").classList.contains("show"))closeProduct();$("ovCart").classList.remove("show");$("ovBag").classList.remove("show")}});
 
 $("grid").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
 /* scroll effects */
