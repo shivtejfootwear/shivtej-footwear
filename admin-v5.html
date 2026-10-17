@@ -283,7 +283,7 @@ textarea{min-height:70px;resize:vertical}
     <!-- 6 season animation -->
     <div class="card">
       <h2><span class="sec-no">6</span>सीज़न एनिमेशन (Season animation)</h2>
-      <div class="sub" style="margin-bottom:8px">वेबसाइट खुलते ही चुना हुआ एनिमेशन लगभग 8 सेकंड चलता है, हल्की आवाज़ के साथ (आवाज़ ग्राहक के पहली बार स्क्रीन छूने पर शुरू होती है)। एक सीज़न ऑन करने पर बाकी सब अपने-आप ऑफ हो जाते हैं। स्विच दबाते ही सेव हो जाता है, Save बटन की ज़रूरत नहीं।</div>
+      <div class="sub" style="margin-bottom:8px">वेबसाइट खुलते ही सीज़न का एनिमेशन लगभग 8 सेकंड चलता है, हल्की आवाज़ के साथ। <b>अपने-आप (कैलेंडर)</b> ऑन रहे तो दिवाली, होली, गणपति, बरसात वगैरह तारीख़ के हिसाब से खुद बदलते हैं। आप कोई सीज़न हाथ से ऑन करें तो वो अगला सीज़न आने तक चलेगा, फिर कैलेंडर अपने-आप चालू हो जाएगा। एक ऑन करने पर बाकी सब ऑफ। स्विच दबाते ही सेव हो जाता है।</div>
       <div id="seasonList"></div>
       <div class="seasonPrev" id="seasonPrev"><div class="pvTop">SHIVTEJ FOOTWEAR</div><div class="pvHero">Welcome to SHIVTEJ FOOTWEAR</div><div class="pvNote" id="seasonPrevNote">"देखें" दबाकर कोई भी सीज़न यहाँ देख सकते हैं।</div></div>
       <div class="msg" id="seasonMsg"></div>
@@ -426,8 +426,15 @@ async function loadSettings(){
 // ---------- season animation (one on at a time; saved as cfg.season, "" = all off) ----------
 const SEASONS=(window.ShivtejSeason&&ShivtejSeason.LIST)||[];
 function paintSeasons(){
-  const on=String(cfg.season||"");
-  $("seasonList").innerHTML=SEASONS.map((s,i)=>`<div class="srow">
+  const on=cfg.season==null?"auto":String(cfg.season);
+  const today=window.ShivtejSeason?ShivtejSeason.auto(new Date()):"";
+  const tn=SEASONS.find(x=>x.key===today);
+  const autoRow=`<div class="srow">
+      <span class="sec-no">A</span>
+      <div class="sname"><b>अपने-आप (कैलेंडर के हिसाब से)</b> <span>Auto</span><small>आज कैलेंडर के हिसाब से: ${tn?esc(tn.hi):"कोई सीज़न नहीं"}</small></div>
+      <label class="sw" title="On / Off"><input type="checkbox" data-season="auto" ${on==="auto"?"checked":""} aria-label="Automatic by calendar on or off"><span></span></label>
+    </div>`;
+  $("seasonList").innerHTML=(SEASONS.length?autoRow:"")+SEASONS.map((s,i)=>`<div class="srow">
       <span class="sec-no">${i+1}</span>
       <div class="sname"><b>${esc(s.hi)}</b> <span>${esc(s.en)}</span><small>${esc(s.what)}</small></div>
       <button class="btn line sm" type="button" data-prev="${esc(s.key)}">देखें</button>
@@ -448,7 +455,9 @@ async function setSeason(key){
   const {error}=await sb.from("site_settings").upsert({key:"site",value,updated_at:new Date().toISOString()},{onConflict:"key"});
   if(error){cfg.season=prev;paintSeasons();say("seasonMsg","Save failed: "+error.message,"err");return}
   const s=SEASONS.find(x=>x.key===key);
-  say("seasonMsg",s?s.hi+" ऑन है, बाकी सब ऑफ। वेबसाइट दोबारा खोलकर देखें।":"सभी सीज़न ऑफ हैं। वेबसाइट पर कोई एनिमेशन नहीं चलेगा।","ok");
+  say("seasonMsg",key==="auto"?"अपने-आप (कैलेंडर) चालू है। तारीख़ के हिसाब से सीज़न खुद बदलेगा।"
+    :s?s.hi+" ऑन है, बाकी सब ऑफ। अगला सीज़न आने पर कैलेंडर अपने-आप चालू हो जाएगा।"
+    :"सब ऑफ है। अगला सीज़न आने पर कैलेंडर अपने-आप चालू हो जाएगा।","ok");
 }
 document.addEventListener("click",e=>{
   const pv=e.target.closest("[data-prev]");
@@ -457,7 +466,13 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
   const sw=e.target.closest("[data-season]");if(!sw)return;
   const key=sw.dataset.season;
-  if(sw.checked){setSeason(key);previewSeason(key)}else setSeason("");
+  if(key==="auto"){
+    if(sw.checked){setSeason("auto");const k=window.ShivtejSeason&&ShivtejSeason.auto(new Date());if(k)previewSeason(k)}
+    else setSeason("");
+    return;
+  }
+  // turning a season off goes back to the calendar
+  if(sw.checked){setSeason(key);previewSeason(key)}else setSeason("auto");
 });
 
 // ---------- orders ----------

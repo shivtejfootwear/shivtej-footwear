@@ -917,7 +917,8 @@
     var ac = AC, master = ac.createGain(), started = false, stopped = false, t0 = performance.now();
     master.gain.value = 0; master.connect(ac.destination);
     var S = makeSounds(ac, master);
-    var evs = ["pointerdown", "touchend", "keydown"];
+    // every event a browser counts as the visitor "touching" the page (a tap anywhere starts the sound)
+    var evs = ["pointerdown", "pointerup", "mousedown", "touchend", "keydown", "click"];
     function begin() {
       if (started || stopped) return;
       var left = (DUR - (performance.now() - t0)) / 1000;
@@ -999,5 +1000,56 @@
   }
   function stop() { if (current) current(); }
 
-  window.ShivtejSeason = { LIST: LIST, play: play, stop: stop };
+  /* ---------------- automatic season by date ----------------
+     Festivals that move every year come from this table (month-day). Add a new year's line when needed;
+     a year without a line still gets the fixed-date festivals and summer / monsoon / winter. */
+  var FEST = {
+    2026: { holi: "03-03", padwa: "03-20", eid: ["03-21", "05-28"], ganesh: "09-14", navratri: "10-11", dussehra: "10-21", diwali: "11-08" },
+    2027: { holi: "03-22", padwa: "04-07", eid: ["03-10", "05-17"], ganesh: "09-04", navratri: "09-30", dussehra: "10-09", diwali: "10-29" },
+    2028: { holi: "03-11", padwa: "03-27", eid: ["02-27", "05-06"], ganesh: "08-23", navratri: "09-19", dussehra: "09-27", diwali: "10-17" },
+    2029: { holi: "03-01", padwa: "04-14", eid: ["02-15", "04-25"], ganesh: "09-11", navratri: "10-08", dussehra: "10-16", diwali: "11-05" },
+    2030: { eid: ["02-05", "04-14"], diwali: "10-26" }
+  };
+  function dayOf(y, md) { var p = md.split("-"); return new Date(y, +p[0] - 1, +p[1]); }
+  function inRange(d, y, md, before, after) {
+    var c = dayOf(y, md), a = new Date(c), b = new Date(c);
+    a.setDate(a.getDate() - before); b.setDate(b.getDate() + after);
+    return d >= a && d <= b;
+  }
+  /* The season for a date (or "" when none). Festivals come first, then the weather seasons. */
+  function auto(date) {
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate(), md = m * 100 + day, f = FEST[y] || {};
+    if (f.diwali && inRange(d, y, f.diwali, 8, 3)) return "diwali";
+    if (f.navratri && f.dussehra) {
+      var ns = dayOf(y, f.navratri), de = dayOf(y, f.dussehra);
+      ns.setDate(ns.getDate() - 1); de.setDate(de.getDate() + 1);
+      if (d >= ns && d <= de) return "navratri";
+    }
+    if (f.ganesh && inRange(d, y, f.ganesh, 1, 10)) return "ganesh";
+    if (f.holi && inRange(d, y, f.holi, 3, 1)) return "holi";
+    if (f.padwa && inRange(d, y, f.padwa, 3, 1)) return "padwa";
+    if (f.eid && f.eid.some(function (e) { return inRange(d, y, e, 2, 2); })) return "eid";
+    if (md >= 1228 || md <= 102) return "newyear";
+    if (md >= 1220) return "christmas";
+    if (md >= 110 && md <= 116) return "sankranti";
+    if ((md >= 122 && md <= 127) || (md >= 811 && md <= 816)) return "republic";
+    if (md >= 301 && md <= 607) return "summer";
+    if (md >= 608 && md <= 930) return "monsoon";
+    if (md >= 1115 || md <= 228 || (m === 2 && day === 29)) return "winter";
+    return "";
+  }
+  /* What plays now: setting "auto" (or nothing saved) = by the calendar. A season chosen by hand (or "" = off)
+     holds only until the calendar season changes after it was chosen; then the calendar takes over again,
+     so a forgotten choice never stays for months. setAt = when the website settings were last saved. */
+  function pickSeason(setting, setAt, now) {
+    now = now || new Date();
+    var cal = auto(now);
+    if (setting == null || setting === "auto") return cal;
+    if (setAt && !isNaN(new Date(setAt)) && auto(new Date(setAt)) !== cal) return cal;
+    return setting;
+  }
+  function name(key) { for (var i = 0; i < LIST.length; i++) if (LIST[i].key === key) return LIST[i]; return null; }
+
+  window.ShivtejSeason = { LIST: LIST, play: play, stop: stop, auto: auto, current: pickSeason, name: name };
 })();
