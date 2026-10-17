@@ -47,6 +47,25 @@ textarea{min-height:70px;resize:vertical}
 .ordbox .tot{font-weight:600;margin-top:8px}
 .sel{width:100%;font:inherit;font-size:15px;padding:11px 13px;border:1px solid #d1d5db;border-radius:12px;background:#fff}
 #shipFee{width:160px}
+/* season animation list: one row per season, on/off switch, preview */
+.srow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.srow:first-child{border-top:0}
+.sname{flex:1;min-width:0;font-size:14px;line-height:1.4}
+.sname b{font-size:15px}
+.sname span{color:var(--mute);font-size:13px}
+.sname small{display:block;color:var(--mute);font-size:12px}
+.btn.sm{padding:7px 12px;font-size:13px}
+.sw{position:relative;width:48px;height:28px;flex:0 0 auto;display:inline-block}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sw span{position:absolute;inset:0;background:#d1d5db;border-radius:999px;transition:background .2s;cursor:pointer}
+.sw span:before{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.sw input:checked+span{background:var(--ok)}
+.sw input:checked+span:before{transform:translateX(20px)}
+.sw input:focus-visible+span{outline:2px solid var(--ink);outline-offset:2px}
+.seasonPrev{position:relative;margin-top:12px;height:260px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#fff}
+.seasonPrev .pvTop{height:44px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 12px;font-weight:900;color:var(--red);font-size:13px}
+.seasonPrev .pvHero{background:#c50f1a;color:#fff;padding:22px 14px;font-weight:800;font-size:18px}
+.seasonPrev .pvNote{padding:12px 14px;color:var(--mute);font-size:13px}
 </style>
 </head>
 <body>
@@ -261,6 +280,15 @@ textarea{min-height:70px;resize:vertical}
       <input type="text" id="whatsapp" placeholder="918898900888">
     </div>
 
+    <!-- 6 season animation -->
+    <div class="card">
+      <h2><span class="sec-no">6</span>सीज़न एनिमेशन (Season animation)</h2>
+      <div class="sub" style="margin-bottom:8px">वेबसाइट खुलते ही चुना हुआ एनिमेशन लगभग 8 सेकंड चलता है, हल्की आवाज़ के साथ (आवाज़ ग्राहक के पहली बार स्क्रीन छूने पर शुरू होती है)। एक सीज़न ऑन करने पर बाकी सब अपने-आप ऑफ हो जाते हैं। स्विच दबाते ही सेव हो जाता है, Save बटन की ज़रूरत नहीं।</div>
+      <div id="seasonList"></div>
+      <div class="seasonPrev" id="seasonPrev"><div class="pvTop">SHIVTEJ FOOTWEAR</div><div class="pvHero">Welcome to SHIVTEJ FOOTWEAR</div><div class="pvNote" id="seasonPrevNote">"देखें" दबाकर कोई भी सीज़न यहाँ देख सकते हैं।</div></div>
+      <div class="msg" id="seasonMsg"></div>
+    </div>
+
     <div class="savebar">
       <div class="row" style="justify-content:space-between">
         <button class="btn red" id="saveBtn">Save</button>
@@ -281,6 +309,7 @@ textarea{min-height:70px;resize:vertical}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="season.js"></script>
 <script>
 const SB_URL="https://rvufigsdclnzelmepigb.supabase.co";
 const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
@@ -291,7 +320,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const show=v=>["loginView","deniedView","adminView"].forEach(x=>$(x).classList.toggle("hidden",x!==v));
 const say=(id,t,cls)=>{const el=$(id);el.textContent=t;el.className="msg "+(cls||"")};
 
-let sb=null, token="", cfg={};
+let sb=null, token="", cfg={}, cfgLoaded=false;
 
 function fillForm(){
   $("heroTitle").value=cfg.heroTitle??"New stock.|New style.";
@@ -389,9 +418,47 @@ function readSlides(){
 async function loadSettings(){
   const {data,error}=await sb.from("site_settings").select("value").eq("key","site").maybeSingle();
   if(error){say("saveMsg","Settings could not load: "+error.message,"err");cfg={};fillForm();return}
-  cfg=(data&&data.value)||{};
+  cfg=(data&&data.value)||{};cfgLoaded=true;
   fillForm();
+  paintSeasons();
 }
+
+// ---------- season animation (one on at a time; saved as cfg.season, "" = all off) ----------
+const SEASONS=(window.ShivtejSeason&&ShivtejSeason.LIST)||[];
+function paintSeasons(){
+  const on=String(cfg.season||"");
+  $("seasonList").innerHTML=SEASONS.map((s,i)=>`<div class="srow">
+      <span class="sec-no">${i+1}</span>
+      <div class="sname"><b>${esc(s.hi)}</b> <span>${esc(s.en)}</span><small>${esc(s.what)}</small></div>
+      <button class="btn line sm" type="button" data-prev="${esc(s.key)}">देखें</button>
+      <label class="sw" title="On / Off"><input type="checkbox" data-season="${esc(s.key)}" ${on===s.key?"checked":""} aria-label="${esc(s.en)} on or off"><span></span></label>
+    </div>`).join("")||'<div class="hint">season.js could not load. Reload the page.</div>';
+}
+function previewSeason(key){
+  const s=SEASONS.find(x=>x.key===key);if(!s||!window.ShivtejSeason)return;
+  $("seasonPrevNote").textContent="अभी चल रहा है: "+s.hi+" ("+s.en+")";
+  ShivtejSeason.play(key,{host:$("seasonPrev"),force:true,z:5});
+}
+async function setSeason(key){
+  if(!cfgLoaded){say("seasonMsg","Settings are not loaded yet. Reload the page and try again.","err");paintSeasons();return}
+  const prev=String(cfg.season||"");
+  cfg.season=key;paintSeasons();
+  say("seasonMsg","Saving...");
+  const value={...cfg,season:key};
+  const {error}=await sb.from("site_settings").upsert({key:"site",value,updated_at:new Date().toISOString()},{onConflict:"key"});
+  if(error){cfg.season=prev;paintSeasons();say("seasonMsg","Save failed: "+error.message,"err");return}
+  const s=SEASONS.find(x=>x.key===key);
+  say("seasonMsg",s?s.hi+" ऑन है, बाकी सब ऑफ। वेबसाइट दोबारा खोलकर देखें।":"सभी सीज़न ऑफ हैं। वेबसाइट पर कोई एनिमेशन नहीं चलेगा।","ok");
+}
+document.addEventListener("click",e=>{
+  const pv=e.target.closest("[data-prev]");
+  if(pv){previewSeason(pv.dataset.prev);return}
+});
+document.addEventListener("change",e=>{
+  const sw=e.target.closest("[data-season]");if(!sw)return;
+  const key=sw.dataset.season;
+  if(sw.checked){setSeason(key);previewSeason(key)}else setSeason("");
+});
 
 // ---------- orders ----------
 let orders=[], openOrderId=null;

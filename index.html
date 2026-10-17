@@ -446,6 +446,7 @@ footer h5 a.mapLink svg{flex:none}
 .oactions{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px 12px}
 .oship{padding:0 14px 14px;font-size:12px;color:#6b6b72;line-height:1.5}
 </style>
+<script src="season.js" defer></script>
 </head>
 <body>
 
@@ -1434,8 +1435,17 @@ function applySettings(){
 async function loadSettings(){
   try{
     const r=await fetch(SB_URL+"/rest/v1/site_settings?select=value&key=eq.site",{headers:{apikey:SB_KEY,Authorization:"Bearer "+SB_KEY}});
-    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){const keep={instagram:CONFIG.instagram,whatsapp:CONFIG.whatsapp,facebook:CONFIG.facebook};Object.assign(CONFIG,v);/* empty social links fall back to the defaults above */["instagram","whatsapp","facebook"].forEach(k=>{if(!String(CONFIG[k]||"").trim())CONFIG[k]=keep[k]});applySettings();renderSlides();setTimeout(renderOffer,1500)}}
+    if(r.ok){const rows=await r.json();const v=rows&&rows[0]&&rows[0].value;if(v&&typeof v==="object"){const keep={instagram:CONFIG.instagram,whatsapp:CONFIG.whatsapp,facebook:CONFIG.facebook};Object.assign(CONFIG,v);/* empty social links fall back to the defaults above */["instagram","whatsapp","facebook"].forEach(k=>{if(!String(CONFIG[k]||"").trim())CONFIG[k]=keep[k]});applySettings();renderSlides();setTimeout(renderOffer,1500);startSeason()}}
   }catch(e){}
+}
+/* season animation turned on in the admin (CONFIG.season, e.g. "diwali"): plays once when the website opens */
+let seasonStarted=false;
+function startSeason(){
+  const key=String(CONFIG.season||"").trim();
+  if(seasonStarted||!key)return;
+  seasonStarted=true;
+  const go=()=>{if(window.ShivtejSeason)setTimeout(()=>ShivtejSeason.play(key),400)};
+  if(window.ShivtejSeason)go();else window.addEventListener("load",go,{once:true});
 }
 
 /* clicking the floating photo opens the product with that article code */
