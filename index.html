@@ -131,6 +131,19 @@ button{cursor:pointer}
 .cpn{display:flex;gap:8px;margin:6px 0 2px}
 .cpn .field{flex:1;min-width:0;margin:0;text-transform:uppercase}
 .cpn .btn{flex:0 0 auto}
+/* courier choice at checkout */
+.shipBox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0 10px;font-size:14px}
+.shipBox .h{display:block;margin-bottom:4px}
+.shipOpt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;margin-top:6px;font:inherit;color:var(--ink);cursor:pointer}
+.shipOpt.on{border-color:var(--ink);box-shadow:0 0 0 2px rgba(17,17,17,.08)}
+.shipOpt .r{width:18px;height:18px;border-radius:50%;border:2px solid #bbb;flex:0 0 auto}
+.shipOpt.on .r{border-color:var(--red);background:radial-gradient(circle,var(--red) 0 42%,transparent 46%)}
+.shipOpt .n{flex:1;min-width:0;font-weight:600}
+.shipOpt .n small{display:block;color:var(--mute);font-size:12px;font-weight:400}
+.shipOpt .p{font-weight:800;white-space:nowrap}
+.shipTag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 7px;margin-left:6px;background:#e7f5e8;color:#157347;vertical-align:1px}
+.shipTag.fast{background:#e8f0fe;color:#1a56c4}
+.shipMore{background:none;border:0;color:var(--red);font-weight:700;font-size:13px;margin-top:8px;cursor:pointer;padding:0}
 .cpnMsg{min-height:18px;margin:2px 0 10px;font-size:13px}
 /* today's offer popup (set in the admin: Today's offer) */
 .offerOv{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;animation:fade .25s ease}
@@ -983,6 +996,38 @@ let SHIP_FEE=80;
 async function loadShipFee(){
   try{const v=await rpc("site_shipping_fee");const n=Number(v);if(isFinite(n)&&n>=0)SHIP_FEE=n}catch(e){}
 }
+/* Courier choice: after the pincode, the customer picks a courier (Shiprocket price and delivery days for that
+   pincode, 500 g per pair). The server asks Shiprocket again for the chosen courier, so the price paid is the server's.
+   If prices can not be loaded, the fixed shipping charge applies and the shop chooses the courier. */
+let shipRates=null,shipPick=null,shipKey="",shipAll=false,shipT=0;
+const shipPairs=()=>buyLines().reduce((n,x)=>n+Number(x.qty||0),0);
+const curShipFee=()=>shipPick?shipPick.rate:SHIP_FEE;
+function resetShip(){shipRates=null;shipPick=null;shipKey="";shipAll=false}
+async function loadRates(){
+  const el=$("cPin");if(!el)return;
+  const pin=el.value.trim(),pairs=shipPairs(),key=pin+"|"+pairs;
+  if(!/^[1-9]\d{5}$/.test(pin)||!pairs){resetShip();paintShip();paintCheckoutSum();return}
+  if(key===shipKey&&shipRates!==null)return;
+  shipKey=key;shipRates="loading";shipPick=null;shipAll=false;paintShip();paintCheckoutSum();
+  let list=[];
+  try{
+    const r=await fetch(SB_URL+"/functions/v1/ship-rates",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({pincode:pin,pairs})});
+    const j=await r.json().catch(()=>null);
+    if(r.ok&&j&&Array.isArray(j.couriers))list=j.couriers;
+  }catch(e){}
+  if(shipKey!==key)return;
+  shipRates=list;shipPick=list[0]||null;
+  paintShip();paintCheckoutSum();
+}
+function paintShip(){
+  const box=$("cShip");if(!box)return;
+  if(shipRates===null){box.innerHTML='<b class="h">Courier</b><span class="note">Enter your pincode to see couriers, their price and delivery days.</span>';return}
+  if(shipRates==="loading"){box.innerHTML='<b class="h">Courier</b><span class="note">Finding couriers for your pincode...</span>';return}
+  if(!shipRates.length){box.innerHTML=`<b class="h">Courier</b><span class="note">Courier prices could not be loaded for this pincode right now. Shipping ${money(SHIP_FEE)}, and the shop chooses the courier.</span>`;return}
+  const show=shipAll?shipRates:shipRates.slice(0,6);
+  box.innerHTML='<b class="h">Choose your courier</b>'+show.map(c=>`<button type="button" class="shipOpt ${shipPick&&shipPick.courier_id===c.courier_id?"on":""}" data-ship="${esc(c.courier_id)}"><span class="r"></span><span class="n">${esc(c.name)}${c.tag==="cheapest"?'<span class="shipTag">Cheapest</span>':c.tag==="fastest"?'<span class="shipTag fast">Fastest</span>':""}<small>${c.days?`Delivery in about ${c.days} day${c.days>1?"s":""}`:"Delivery days not given"}${c.etd?` · by ${esc(c.etd)}`:""}</small></span><span class="p">${money(c.rate)}</span></button>`).join("")
+    +(shipRates.length>6&&!shipAll?`<button type="button" class="shipMore" data-shipall="1">See all ${shipRates.length} couriers</button>`:"");
+}
 const COUNTRIES=["India","Nepal","Bhutan","Bangladesh","Sri Lanka","UAE","USA","UK","Canada","Australia","Other"];
 const INDIAN_STATES=["Andaman and Nicobar Islands","Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chandigarh","Chhattisgarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Goa","Gujarat","Haryana","Himachal Pradesh","Jammu and Kashmir","Jharkhand","Karnataka","Kerala","Ladakh","Lakshadweep","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Puducherry","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal"];
 // Bill shown at checkout and on the order confirmation: each item, items total, shipping, total payable.
@@ -1026,7 +1071,8 @@ function paintCheckoutSum(){
     appliedCoupon=null;const m=$("cpnMsg");if(m)m.textContent="Coupon removed because the items changed. Apply it again.";
   }
   const disc=appliedCoupon?appliedCoupon.discount:0;
-  $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,SHIP_FEE,sub-disc+SHIP_FEE,disc,appliedCoupon?appliedCoupon.code:"");
+  const ship=curShipFee();
+  $("cSum").innerHTML=`<b style="display:block;margin-bottom:4px">Your bill</b>`+billHtml(rows,sub,ship,sub-disc+ship,disc,appliedCoupon?appliedCoupon.code:"");
 }
 function drawCheckout(){
   $("cPanel").innerHTML=`<button class="x" id="cX">×</button><h3>Order Details</h3>
@@ -1039,6 +1085,7 @@ function drawCheckout(){
     <select class="field" id="cState"><option value="">Select state</option>${INDIAN_STATES.map(s=>`<option>${s}</option>`).join("")}</select>
     <input class="field" id="cCity" placeholder="City">
     <input class="field" id="cPin" inputmode="numeric" maxlength="6" placeholder="Pincode (6 digits)">
+    <div class="shipBox" id="cShip"></div>
     <textarea class="field" id="cAddr" placeholder="House no., street, area / landmark"></textarea>
     <div id="cSum" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin:6px 0 12px;font-size:14px;line-height:1.8"></div>
     <div class="cpn"><input class="field" id="cCoupon" placeholder="Coupon code (if you have one)" autocomplete="off" maxlength="20"><button class="btn dark" id="cpnBtn" type="button">Apply</button></div>
@@ -1050,6 +1097,14 @@ function drawCheckout(){
   appliedCoupon=null;
   $("cpnBtn").onclick=applyCoupon;
   $("placeBtn").onclick=placeOrder;
+  // courier list: loads when the 6-digit pincode is typed; tap a courier to choose it
+  resetShip();paintShip();
+  $("cPin").addEventListener("input",()=>{clearTimeout(shipT);shipT=setTimeout(loadRates,350)});
+  $("cShip").onclick=e=>{
+    if(e.target.closest("[data-shipall]")){shipAll=true;paintShip();return}
+    const b=e.target.closest("[data-ship]");if(!b||!Array.isArray(shipRates))return;
+    shipPick=shipRates.find(c=>c.courier_id===b.dataset.ship)||shipPick;paintShip();paintCheckoutSum();
+  };
   paintCheckoutSum();
   // The order is for the logged-in number: fill it in and keep it as it is.
   const me=getLogin();
@@ -1123,7 +1178,7 @@ async function runPayment(id,mob,btn){
   }
 }
 
-const PLACE_MSG={STOCK:"Sorry, this size is out of stock now. Please check the cart and try again.",RATE_LIMIT:"Too many orders. Please try again shortly.",INVALID_DETAILS:"Please check your details.",INVALID_ITEMS:"Please select a size first.",NOT_ONLINE:"Please choose online payment.",GATEWAY:"Payment could not be started now. Please try again."};
+const PLACE_MSG={COURIER_UNAVAILABLE:"This courier is not available for your pincode now. Please choose another courier.",STOCK:"Sorry, this size is out of stock now. Please check the cart and try again.",RATE_LIMIT:"Too many orders. Please try again shortly.",INVALID_DETAILS:"Please check your details.",INVALID_ITEMS:"Please select a size first.",NOT_ONLINE:"Please choose online payment.",GATEWAY:"Payment could not be started now. Please try again."};
 // Opens the Razorpay popup for a NEW order. Nothing is an order until the payment is received. Resolves "paid", "closed" or "failed".
 async function openNewPayment(j){
   await loadRazorpay();
@@ -1157,6 +1212,7 @@ async function placeOrder(){
   if(!/^\d{6}$/.test(pincode)){toast("Enter a valid 6-digit pincode");return}
   const lines=buyLines();
   if(!lines.length){toast("Please select a size first");return}
+  if(shipRates==="loading"){toast("Courier prices are loading. Please wait a moment.");return}
   const btn=$("placeBtn");
   const reset=()=>{btn.disabled=false;btn.textContent="Place Order"};
   if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){reset();paintCheckoutSum();toast("Please apply the coupon again");return}
@@ -1166,7 +1222,7 @@ async function placeOrder(){
   // The server checks the login, the details and the stock, and opens the payment. No order is saved yet.
   let j=null;
   try{
-    const r=await fetch(SB_URL+"/functions/v1/create-payment",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({token:me.token,name,country,state,city,pincode,address,payment,items,coupon})});
+    const r=await fetch(SB_URL+"/functions/v1/create-payment",{method:"POST",headers:{apikey:SB_KEY,"content-type":"application/json"},body:JSON.stringify({token:me.token,name,country,state,city,pincode,address,payment,items,coupon,courier_id:shipPick?shipPick.courier_id:""})});
     j=await r.json().catch(()=>null);
     if(!r.ok||!j||!j.razorpay_order_id){
       const code=(j&&j.error)||"";
@@ -1174,6 +1230,7 @@ async function placeOrder(){
       if(code==="NOT_LOGGED_IN"){saveLogin(null);toast("Please login again");openLogin();return}
       if(code==="COUPON_INVALID"||code==="COUPON_NOT_FOR_CART"){appliedCoupon=null;paintCheckoutSum();$("cpnMsg").textContent=couponErr(code);toast("Coupon could not be used. Please check it");return}
       if(code==="STOCK")loadProducts();
+      if(code==="COURIER_UNAVAILABLE"){shipKey="";loadRates()}
       toast(PLACE_MSG[code]||"Order could not be started. Check your internet and try again");
       return;
     }
