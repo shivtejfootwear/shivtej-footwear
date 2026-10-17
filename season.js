@@ -845,7 +845,7 @@
   };
 
   /* ---------------- sound ---------------- */
-  var AC = null, NOISE = null, VOL = 0.5;
+  var AC = null, NOISE = null, VOL = 1.0;   // loud enough at a normal phone / computer volume
   function makeSounds(ac, out) {
     if (!NOISE) {
       NOISE = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
@@ -915,7 +915,10 @@
     if (!enabled || !def.sound || !AudioC) return api;
     try { AC = AC || new AudioC(); } catch (e) { return api; }
     var ac = AC, master = ac.createGain(), started = false, stopped = false, t0 = performance.now();
-    master.gain.value = 0; master.connect(ac.destination);
+    // a limiter after the volume, so crackers and drums stay clear and never crackle at the higher volume
+    var lim = ac.createDynamicsCompressor();
+    lim.threshold.value = -14; lim.knee.value = 8; lim.ratio.value = 6; lim.attack.value = 0.003; lim.release.value = 0.25;
+    master.gain.value = 0; master.connect(lim); lim.connect(ac.destination);
     var S = makeSounds(ac, master);
     // every event a browser counts as the visitor "touching" the page (a tap anywhere starts the sound)
     var evs = ["pointerdown", "pointerup", "mousedown", "touchend", "keydown", "click"];
@@ -949,7 +952,7 @@
       stopped = true;
       unlisten();
       try { master.gain.cancelScheduledValues(ac.currentTime); master.gain.setTargetAtTime(0, ac.currentTime, 0.12); } catch (e) {}
-      setTimeout(function () { try { master.disconnect(); } catch (e) {} }, 900);
+      setTimeout(function () { try { master.disconnect(); lim.disconnect(); } catch (e) {} }, 900);
     };
     return api;
   }
