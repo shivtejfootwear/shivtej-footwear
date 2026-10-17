@@ -929,17 +929,25 @@
       master.gain.setValueAtTime(VOL, n + left - 1.3); master.gain.linearRampToValueAtTime(0, n + left);
       def.sound(S, n + 0.05, left, api);
     }
+    function unlisten() { evs.forEach(function (e) { window.removeEventListener(e, gesture, true); }); }
     function tryStart() {
-      if (stopped) return;
-      if (ac.state === "running") begin();
-      else { try { ac.resume().then(function () { if (ac.state === "running") begin(); }, function () {}); } catch (e) {} }
+      if (stopped || started) return;
+      if (ac.state === "running") { begin(); if (started) unlisten(); return; }
+      try { ac.resume().then(function () { if (ac.state === "running") { begin(); if (started) unlisten(); } }, function () {}); } catch (e) {}
     }
-    function gesture() { evs.forEach(function (e) { window.removeEventListener(e, gesture, true); }); tryStart(); }
+    // Phones allow sound only on the finger-up / tap, not on finger-down, and a scroll does not count.
+    // So keep listening on every touch until the sound has really started.
+    function gesture() {
+      if (stopped || started) return;
+      // iPhone: playing a tiny silent sound inside the tap unlocks audio for the page
+      try { var b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch (e) {}
+      tryStart();
+    }
     evs.forEach(function (e) { window.addEventListener(e, gesture, true); });
     tryStart();
     api.stop = function () {
       stopped = true;
-      evs.forEach(function (e) { window.removeEventListener(e, gesture, true); });
+      unlisten();
       try { master.gain.cancelScheduledValues(ac.currentTime); master.gain.setTargetAtTime(0, ac.currentTime, 0.12); } catch (e) {}
       setTimeout(function () { try { master.disconnect(); } catch (e) {} }, 900);
     };
