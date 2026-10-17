@@ -136,7 +136,9 @@ button{cursor:pointer}
 .shipBox .h{display:block;margin-bottom:4px}
 .shipHint{display:block;margin-bottom:4px;color:#a00000;font-weight:700;font-size:14px;line-height:1.35}
 .shipFast{color:#1a56c4;white-space:nowrap}
-.shipLogo{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12.5px;letter-spacing:.3px}
+.shipLogo{flex:0 0 auto;width:58px;height:38px;border-radius:9px;background:#fff;border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;padding:3px}
+.shipLogo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.shipLogo.txt{border-color:transparent;color:#fff;font-weight:800;font-size:13px;letter-spacing:.4px}
 .shipOpt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;margin-top:6px;font:inherit;color:var(--ink);cursor:pointer}
 .shipOpt.on{border-color:var(--ink);box-shadow:0 0 0 2px rgba(17,17,17,.08)}
 .shipOpt .r{width:18px;height:18px;border-radius:50%;border:2px solid #bbb;flex:0 0 auto}
@@ -1023,12 +1025,34 @@ async function loadRates(){
   shipRates=list;shipPick=list[0]||null;
   paintShip();paintCheckoutSum();
 }
-// Small round badge with the courier's short name (not the company's logo).
-const SHIP_BADGE=[["india post","IP","#c62828"],["blue dart","BD","#1f4fa3"],["delhivery","DL","#263238"],["shadowfax","SF","#2e7d32"],["xpressbees","XB","#ef6c00"],["ekart","EK","#6a1b9a"],["dtdc","DT","#b71c1c"],["ecom","EC","#00838f"],["amazon","AM","#37474f"],["smartr","SM","#5d4037"]];
+// Courier company logo: the company's logo from Wikimedia Commons where there is one, else the icon from the
+// company's own website (via Google's icon service). If a picture can not load, a badge with the short name shows.
+const WM=f=>"https://commons.wikimedia.org/wiki/Special:FilePath/"+encodeURIComponent(f)+"?width=160";
+const FAV=d=>"https://www.google.com/s2/favicons?sz=128&domain="+d;
+const SHIP_BADGE=[
+  ["india post","IP","#c62828",[WM("India-post-logo.jpg"),FAV("indiapost.gov.in")]],
+  ["blue dart","BD","#1f4fa3",[WM("Blue_Dart_Express_logo.svg"),WM("Blue_Dart_logo_transparent.png"),FAV("bluedart.com")]],
+  ["delhivery","DL","#263238",[WM("Delhivery_Logo_(2019).png"),FAV("delhivery.com")]],
+  ["shadowfax","SF","#2e7d32",[FAV("shadowfax.in")]],
+  ["xpressbees","XB","#ef6c00",[FAV("xpressbees.com")]],
+  ["ekart","EK","#6a1b9a",[FAV("ekartlogistics.com")]],
+  ["dtdc","DT","#b71c1c",[FAV("dtdc.in")]],
+  ["ecom","EC","#00838f",[FAV("ecomexpress.in")]],
+  ["amazon","AM","#37474f",[FAV("amazon.in")]],
+  ["smartr","SM","#5d4037",[FAV("smartr.in")]]];
+function shipBadgeText(hit,n){return hit?hit[1]:(n.match(/[a-z]+/g)||["?"]).slice(0,2).map(w=>w[0]).join("").toUpperCase()}
 function shipBadge(name){
   const n=String(name||"").toLowerCase(),hit=SHIP_BADGE.find(x=>n.includes(x[0]));
-  const t=hit?hit[1]:(n.match(/[a-z]+/g)||["?"]).slice(0,2).map(w=>w[0]).join("").toUpperCase();
-  return `<span class="shipLogo" style="background:${hit?hit[2]:"#546e7a"}">${esc(t)}</span>`;
+  const t=shipBadgeText(hit,n),bg=hit?hit[2]:"#546e7a";
+  if(!hit)return `<span class="shipLogo txt" style="background:${bg}">${esc(t)}</span>`;
+  return `<span class="shipLogo" data-bg="${bg}" data-t="${esc(t)}"><img src="${esc(hit[3][0])}" data-i="0" data-k="${esc(hit[0])}" alt="${esc(t)}" referrerpolicy="no-referrer" onerror="shipLogoErr(this)"></span>`;
+}
+// next picture for this courier; after the last one, the short-name badge
+function shipLogoErr(img){
+  const hit=SHIP_BADGE.find(x=>x[0]===img.dataset.k),i=Number(img.dataset.i)+1;
+  if(hit&&hit[3][i]){img.dataset.i=i;img.src=hit[3][i];return}
+  const box=img.parentNode;if(!box)return;
+  box.classList.add("txt");box.style.background=box.dataset.bg;box.textContent=box.dataset.t;
 }
 function paintShip(){
   const box=$("cShip");if(!box)return;
