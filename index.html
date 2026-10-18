@@ -997,7 +997,8 @@ function buyNow(){
 /* ---------- checkout (buy one item directly) ---------- */
 function buyLines(){return checkLines.map(x=>{const p=products.find(y=>y.id===x.pid);return p?{...x,p}:null}).filter(Boolean)}
 // Shipping charge for website orders. The server sets the real amount; this is only what the customer sees.
-let SHIP_FEE=80;
+// Packing charge set by the owner (0 = none); added to the courier price. Saved in the old "shipping fee" setting.
+let SHIP_FEE=0;
 async function loadShipFee(){
   try{const v=await rpc("site_shipping_fee");const n=Number(v);if(isFinite(n)&&n>=0)SHIP_FEE=n}catch(e){}
 }
@@ -1007,7 +1008,7 @@ async function loadShipFee(){
 let shipRates=null,shipPick=null,shipKey="",shipAll=false,shipT=0;
 const shipPairs=()=>buyLines().reduce((n,x)=>n+Number(x.qty||0),0);
 const shipValue=()=>Math.round(buyLines().reduce((n,x)=>n+Number(x.p.price||0)*Number(x.qty||0),0));
-const curShipFee=()=>shipPick?shipPick.rate:SHIP_FEE;
+const curShipFee=()=>(shipPick?shipPick.rate:0)+SHIP_FEE;
 function resetShip(){shipRates=null;shipPick=null;shipKey="";shipAll=false}
 async function loadRates(){
   const el=$("cPin");if(!el)return;
@@ -1058,7 +1059,7 @@ function paintShip(){
   const box=$("cShip");if(!box)return;
   if(shipRates===null){box.innerHTML='<b class="h">Courier</b><span class="note">Enter your pincode to see couriers, their price and delivery days.</span>';return}
   if(shipRates==="loading"){box.innerHTML='<b class="h">Courier</b><span class="note">Finding couriers for your pincode...</span>';return}
-  if(!shipRates.length){box.innerHTML=`<b class="h">Courier</b><span class="note">Courier prices could not be loaded for this pincode right now. Shipping ${money(SHIP_FEE)}, and the shop chooses the courier.</span>`;return}
+  if(!shipRates.length){box.innerHTML=`<b class="h">Courier</b><span class="note">Courier prices could not be loaded for this pincode right now. The shop chooses the courier.</span>`;return}
   const show=shipAll?shipRates:shipRates.slice(0,6);
   box.innerHTML='<b class="h">Choose your courier</b><span class="shipHint">You know your area best: pick the courier you trust to deliver there. <span class="shipFast">Need it fast? Choose Fastest.</span></span>'+show.map(c=>`<button type="button" class="shipOpt ${shipPick&&shipPick.courier_id===c.courier_id?"on":""}" data-ship="${esc(c.courier_id)}"><span class="r"></span>${shipBadge(c.name)}<span class="n">${esc(c.name)}${c.tag==="cheapest"?'<span class="shipTag">Cheapest</span>':c.tag==="fastest"?'<span class="shipTag fast">Fastest</span>':""}<small>${c.days?`Delivery in about ${c.days} day${c.days>1?"s":""}`:"Delivery days not given"}${c.etd?` · by ${esc(c.etd)}`:""}</small></span><span class="p">${money(c.rate)}</span></button>`).join("")
     +(shipRates.length>6&&!shipAll?`<button type="button" class="shipMore" data-shipall="1">See all ${shipRates.length} couriers</button>`:"");
@@ -1070,7 +1071,7 @@ function billHtml(rows,sub,ship,total,disc=0,code=""){
   return `<div class="bill">${rows.map(r=>`<div class="brow"><span>${esc(r.name)} · ${esc(r.colour)} · Size ${esc(r.size)} × ${r.qty}</span><b>${money(r.amount)}</b></div>`).join("")}
     <div class="brow sep"><span>Items total</span><b>${money(sub)}</b></div>
     ${Number(disc)>0?`<div class="brow"><span>Coupon ${esc(code)}</span><b>- ${money(disc)}</b></div>`:""}
-    <div class="brow"><span>Shipping</span><b>${money(ship)}</b></div>
+    ${SHIP_FEE>0&&Number(ship)>=SHIP_FEE?`<div class="brow"><span>Shipping</span><b>${money(Number(ship)-SHIP_FEE)}</b></div><div class="brow"><span>Packing</span><b>${money(SHIP_FEE)}</b></div>`:`<div class="brow"><span>Shipping</span><b>${money(ship)}</b></div>`}
     <div class="brow tot"><span>Total payable</span><b>${money(total)}</b></div></div>`;
 }
 /* coupon typed at checkout: applied to the items it was checked for (the server checks again when the order is placed) */

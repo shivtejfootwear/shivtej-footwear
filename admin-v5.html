@@ -100,12 +100,12 @@ textarea{min-height:70px;resize:vertical}
       </div>
     </div>
 
-    <!-- shipping charge for website orders -->
+    <!-- packing charge for website orders (saved in the old "shipping fee" setting) -->
     <div class="card">
-      <h2>Shipping charge (website)</h2>
-      <p class="sub" style="margin-bottom:0">Customers pay this amount at checkout. You can change it here any time.</p>
+      <h2>Packing charge (website)</h2>
+      <p class="sub" style="margin-bottom:0">Added to every website order, on top of the courier price the customer chooses. Keep 0 for no packing charge.</p>
       <div class="row" style="margin-top:10px">
-        <input type="number" class="sel" id="shipFee" min="0" max="5000" step="1" inputmode="numeric" placeholder="80">
+        <input type="number" class="sel" id="shipFee" min="0" max="5000" step="1" inputmode="numeric" placeholder="0">
         <button class="btn red" id="shipFeeSave">Save</button>
         <span class="msg" id="shipFeeMsg"></span>
       </div>
@@ -482,7 +482,7 @@ const fmtDate=s=>s?new Date(s).toLocaleString("en-IN",{dateStyle:"medium",timeSt
 const ORDER_ERRORS={
   NOT_ADMIN:"This account is not an admin.",
   ORDER_HAS_RETURN:"This order has a return, so it cannot be cancelled here.",
-  BAD_SHIPPING:"Shipping charge must be between 0 and 5000.",
+  BAD_SHIPPING:"Packing charge must be between 0 and 5000.",
   BAD_STATUS:"Choose a valid status.",
   ORDER_NOT_FOUND:"Order not found. Refresh the list."
 };
@@ -597,7 +597,7 @@ async function shipCall(body){
   return j;
 }
 
-// Website shipping charge (what customers pay at checkout).
+// Website packing charge (added to the courier price at checkout).
 async function loadShipFeeAdmin(){
   const {data,error}=await sb.rpc("site_shipping_fee");
   if(!error&&data!=null)$("shipFee").value=data;
