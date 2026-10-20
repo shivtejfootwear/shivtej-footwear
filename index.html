@@ -30,14 +30,13 @@ button{cursor:pointer}
 .promo b{font-weight:600}
 .trustStrip{display:none;background:#fff;border-bottom:1px solid var(--line)}
 .trustStrip.on{display:block}
-.trustStrip ul{list-style:none;margin:0 auto;max-width:1200px;padding:10px 6px;display:grid;grid-template-columns:repeat(3,1fr)}
-.trustStrip li{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;padding:0 4px;font-size:11px;line-height:1.3;font-weight:600;color:#222;text-align:center}
+.trustStrip ul{list-style:none;margin:0 auto;max-width:1200px;padding:4px 4px;display:flex;justify-content:center;align-items:center}
+.trustStrip li{display:flex;align-items:center;justify-content:center;gap:4px;flex:1 1 auto;min-width:0;padding:0 5px;font-size:9.5px;line-height:1.2;font-weight:600;color:#222;white-space:nowrap}
 .trustStrip li+li{border-left:1px solid var(--line)}
-.trustStrip svg{flex:none;width:17px;height:17px}
-.trustStrip .tIco{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.trustStrip svg{flex:none;width:10px;height:10px}
+.trustStrip .tIco{flex:none;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center}
 .trustStrip span{min-width:0}
-@media (min-width:760px){.trustStrip ul{padding:10px 16px}.trustStrip li{flex-direction:row;justify-content:center;gap:8px;font-size:12.5px;padding:0 12px}.trustStrip span{white-space:nowrap}}
-@media (min-width:760px){.trustStrip ul{grid-template-columns:repeat(4,1fr);gap:0;padding:10px 16px}.trustStrip li{justify-content:center;padding:0 12px}.trustStrip li+li{border-left:1px solid var(--line)}}
+@media (min-width:760px){.trustStrip ul{padding:6px 16px}.trustStrip li{font-size:11.5px;gap:6px;padding:0 12px}.trustStrip .tIco{width:20px;height:20px}.trustStrip svg{width:12px;height:12px}}
 .top{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid var(--line)}
 .dd{position:relative}
 .dd>button{background:none;border:0;padding:6px 0;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink);border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
@@ -360,6 +359,7 @@ footer h5 a.mapLink svg{flex:none}
   .fo.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .fo:disabled{opacity:.35}
   .fnone{font-size:10px;color:var(--mute);align-self:center;padding:0 4px}
+  body.catMode .fList .fpr{flex:1 1 100%;width:100%;padding:4px 4px 2px}
   .nav{display:none}
   .shop{grid-template-columns:1fr}
   .filters{position:static}
@@ -913,7 +913,7 @@ function match(p){
 /* price slider: range comes from the cheapest and dearest product */
 function buildPrice(){
   const ps=products.map(p=>p.price).filter(x=>x>=0);
-  const lo=ps.length?Math.floor(Math.min(...ps)/10)*10:0, hi=ps.length?Math.ceil(Math.max(...ps)/10)*10:0;
+  const lo=0, hi=ps.length?Math.ceil(Math.max(...ps)/10)*10:0;
   const mn=$("pMin"),mx=$("pMax");
   mn.min=mx.min=lo; mn.max=mx.max=hi; mn.step=mx.step=10;
   if(S.priceMin==null||S.priceMin<lo||S.priceMin>hi)S.priceMin=lo;
@@ -949,29 +949,46 @@ const FR_ICON={
   colour:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
   price:""
 };
-const FR_BANDS=[[0,500,"₹0–500"],[500,800,"₹500–800"],[800,1000,"₹800–1000"],[1000,1e9,"₹1000+"]];
 let frOpen="";
 function frKey(s){return String(s||"").trim().toLowerCase()}
 /* the products of the chosen category (the lists show only what the category has) */
 function frBase(){return products.filter(p=>S.cat==="All"||S.cat==="NEW"||inCat(p,S.cat))}
-/* options: {v: value, l: label, n: products in this category (0 = greyed, cannot tap)} */
+/* Type, Brand and Colour lists: only what the chosen category has (a type of another category does not show here) */
 function frList(k){
   const base=frBase();
-  if(k==="brand")return [...new Set(base.map(p=>p.brand).filter(Boolean))].sort().map(v=>({v,l:v,n:1}));
-  if(k==="colour")return [...new Set(base.flatMap(p=>p.variants.map(x=>x.colour)).filter(Boolean))].sort().map(v=>({v,l:v,n:1}));
+  if(k==="brand")return [...new Set(base.map(p=>p.brand).filter(Boolean))].sort().map(v=>({v,l:v}));
+  if(k==="colour")return [...new Set(base.flatMap(p=>p.variants.map(x=>x.colour)).filter(Boolean))].sort().map(v=>({v,l:v}));
   if(k==="type"){
-    /* only the types of products in the chosen category (a type of another category, e.g. a bridal chappal, does not show here) */
     const seen=new Map();
     base.forEach(p=>{const t=String(p.type||"").trim();if(t&&!seen.has(frKey(t)))seen.set(frKey(t),t)});
-    return [...seen.values()].sort().map(t=>({v:t,l:t,n:1}));
+    return [...seen.values()].sort().map(t=>({v:t,l:t}));
   }
-  if(k==="price")return FR_BANDS.filter(b=>base.some(p=>p.price>=b[0]&&p.price<b[1])).map(b=>({v:b[0]+"-"+b[1],l:b[2],n:1}));
   return [];
+}
+/* Price: one bar from 0 to the highest price, two handles (like Amazon), not fixed bands */
+function fprHtml(){
+  const hi=+($("pMin").max||0), a=S.priceMin!=null?S.priceMin:0, b=S.priceMax!=null?S.priceMax:hi;
+  return `<div class="prange fpr"><div class="pvals"><span id="fpMinV">₹${a.toLocaleString("en-IN")}</span><span id="fpMaxV">₹${b.toLocaleString("en-IN")}</span></div><div class="dual"><div class="ptrack"></div><div class="pfill" id="fpFill" style="left:${hi?a/hi*100:0}%;width:${hi?(b-a)/hi*100:0}%"></div><input type="range" id="fpMin" min="0" max="${hi}" step="10" value="${a}" aria-label="Lowest price"><input type="range" id="fpMax" min="0" max="${hi}" step="10" value="${b}" aria-label="Highest price"></div></div>`;
+}
+/* while dragging: only the numbers and the bar move (the list is not rebuilt, so the drag does not stop) */
+function fprPaint(){
+  const mn=$("fpMin"),mx=$("fpMax"),hi=+mn.max||1;
+  let a=+mn.value,b=+mx.value; if(a>b){const t=a;a=b;b=t}
+  S.priceMin=a; S.priceMax=b;
+  $("fpMinV").textContent="₹"+a.toLocaleString("en-IN");
+  $("fpMaxV").textContent="₹"+b.toLocaleString("en-IN");
+  $("fpFill").style.left=(a/hi*100)+"%"; $("fpFill").style.width=((b-a)/hi*100)+"%";
+}
+/* when the finger leaves the bar: apply the filter. Full range (0 to highest) means no price filter */
+function fprCommit(){
+  const hi=+($("fpMin").max||0);
+  if((S.priceMin||0)<=0&&(S.priceMax==null||S.priceMax>=hi)){S.priceMin=null;S.priceMax=null}
+  buildFilters();render();
 }
 function buildFilterRow(){
   const row=$("fRow");if(!row)return;
-  const lo=+($("pMin").min||0), hi=+($("pMax").max||0);
-  const priceOn=S.priceMin!=null&&(S.priceMin>lo||S.priceMax<hi);
+  const hi=+($("pMin").max||0);
+  const priceOn=S.priceMin!=null&&(S.priceMin>0||S.priceMax<hi);
   const btn=(k,label,on,icon)=>`<button type="button" class="fi${on?" on":""}" data-fr="${k}" aria-expanded="${frOpen===k}">${icon}<span>${esc(label)}</span></button>`;
   row.innerHTML=
     btn("brand",S.brand||"Brand",!!S.brand,FR_ICON.brand)+
@@ -980,13 +997,18 @@ function buildFilterRow(){
     btn("price",priceOn?`₹${S.priceMin}–${S.priceMax}`:"Price",priceOn,FR_ICON.price);
   const list=$("fList");
   if(!frOpen){list.classList.remove("open");list.innerHTML="";return}
+  if(frOpen==="price"){
+    list.innerHTML=fprHtml();
+    $("fpMin").addEventListener("input",fprPaint); $("fpMax").addEventListener("input",fprPaint);
+    $("fpMin").addEventListener("change",fprCommit); $("fpMax").addEventListener("change",fprCommit);
+    list.classList.add("open");
+    return;
+  }
   const cur={brand:S.brand,type:S.type,colour:S.colour}[frOpen];
   const items=frList(frOpen);
-  list.innerHTML=[{v:"",l:"All",n:1},...items].map(o=>{
-    let on;
-    if(frOpen==="price")on=o.v===""?!priceOn:false;
-    else on=o.v===""?!cur:frKey(o.v)===frKey(cur);
-    return `<button type="button" class="fo${on?" on":""}" data-fo="${frOpen}" data-val="${esc(o.v)}"${o.n===0?" disabled":""}>${esc(o.l)}</button>`;
+  list.innerHTML=[{v:"",l:"All"},...items].map(o=>{
+    const on=o.v===""?!cur:frKey(o.v)===frKey(cur);
+    return `<button type="button" class="fo${on?" on":""}" data-fo="${frOpen}" data-val="${esc(o.v)}">${esc(o.l)}</button>`;
   }).join("")+(frOpen==="type"&&!items.length?'<span class="fnone">No type in this category yet</span>':"");
   list.classList.add("open");
 }
@@ -1542,11 +1564,6 @@ document.addEventListener("click",e=>{
     if(k==="brand")S.brand=v;
     if(k==="type")S.type=v;
     if(k==="colour")S.colour=v;
-    if(k==="price"){
-      if(!v){S.priceMin=null;S.priceMax=null}
-      else{const [a,b]=v.split("-").map(Number);S.priceMin=a;S.priceMax=b}
-      buildPrice();
-    }
     frOpen="";buildFilters();render();return;
   }
   const go=e.target.closest("[data-go]");
