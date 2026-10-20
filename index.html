@@ -330,9 +330,11 @@ footer h5 a.mapLink svg{flex:none}
 @keyframes sizeGlow{0%,100%{box-shadow:0 0 0 0 rgba(227,6,19,0)}50%{box-shadow:0 0 0 5px rgba(227,6,19,.14),0 0 22px 4px rgba(227,6,19,.45)}}
 @media (prefers-reduced-motion:reduce){.sizeBar.askSize{animation:none}}
 .sizeBarM{display:none}
-.sizeBarM{scroll-margin-top:132px}
+.sizeBarM{scroll-margin-top:175px}
 @media (max-width:820px){
   #sizeBar{display:none}
+  body.catMode #slider,body.catMode #sCtl,body.catMode #catSections,body.catMode main>section:not(#pick){display:none}
+  body.catMode .filters{order:1}
   .sizeBarM{display:flex;border-top:0;padding-top:6px;padding-bottom:6px;margin-bottom:4px}
   .nav{display:none}
   .shop{grid-template-columns:1fr}
@@ -909,6 +911,7 @@ function renderSizeBar(){
 }
 function render(){
   renderSizeBar();
+  document.body.classList.toggle("catMode",S.cat!=="All"&&S.cat!=="NEW");
   const list=products.filter(match);
   if(S.sort==="low")list.sort((a,b)=>a.price-b.price);
   else if(S.sort==="high")list.sort((a,b)=>b.price-a.price);
@@ -1708,7 +1711,7 @@ const LOGO_CATS=[
 ];
 const catKey=s=>"cs-"+String(s).toLowerCase().replace(/\s+/g,"-");
 function renderCatLogos(){
-  $("catRow").innerHTML=LOGO_CATS.map(c=>`<button class="catTile" data-jump="${catKey(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}"><span>${esc(c.label)}</span></button>`).join("");
+  $("catRow").innerHTML=LOGO_CATS.map(c=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}"><span>${esc(c.label)}</span></button>`).join("");
 }
 function renderCatSections(){
   const seen=new Set();
