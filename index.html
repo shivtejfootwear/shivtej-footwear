@@ -275,16 +275,24 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .mini2 .miniBuy{display:block;width:100%;margin-top:10px;padding:9px 8px;font-size:12px;text-align:center}
 .mini2 .photo .tag{font-size:10px;padding:3px 8px}
 @media (min-width:860px){.mini2 .name{font-size:15px}}
-.catRow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none}
+.catRow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none;scroll-margin-top:175px}
 .catRow::-webkit-scrollbar{display:none}
 @media (min-width:700px){.catRow{gap:20px}}
 .catTile{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0;color:var(--ink);cursor:pointer;min-width:0}
 .catTile img{width:100%;max-width:104px;aspect-ratio:1/1;object-fit:contain;transition:transform .25s}
 .catTile:hover img{transform:translateY(-4px)}
 .catTile span{font-size:12px;font-weight:600;text-align:center;line-height:1.25;min-height:30px}
+.catTile.on span{color:var(--red);font-weight:800}
+.catTile.on img{transform:translateY(-4px)}
 .catSec{margin-top:40px}
 .catSec .sec{margin:0 0 14px}
 .catSec .more{font-size:13px;font-weight:600;color:var(--red);background:none;border:0;cursor:pointer}
+.chooseHint{display:none}
+@media (max-width:820px){.catRow{overflow:visible}}
+.catTile .tLbl{display:flex;align-items:center;justify-content:center;gap:3px;min-height:30px}
+.catTile .tLbl b{font-weight:600;font-size:12px;line-height:1.25;text-align:center}
+@media (max-width:820px){.chooseHint{display:inline-block;font-style:normal;font-size:8px;font-weight:800;line-height:1;color:#fff;background:var(--red);padding:3px 4px;border-radius:5px;white-space:nowrap;transform:translate(-2px,-2px)}}
+  body.catMode .chooseHint{display:none}
 .sizeTbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
 .sizeTbl th,.sizeTbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
 .cList>div{padding:12px 0;border-bottom:1px solid var(--line)}
@@ -342,7 +350,7 @@ footer h5 a.mapLink svg{flex:none}
   #sizeBar{display:none}
   body.catMode #slider,body.catMode #sCtl,body.catMode #catSections,body.catMode main>section:not(#pick){display:none}
   body.catMode .filters{order:1}
-  .sizeBarM{display:flex;border-top:0;padding-top:6px;padding-bottom:6px;margin-bottom:4px}
+  body.catMode .sizeBarM{display:flex;border-top:0;padding-top:6px;padding-bottom:6px;margin-bottom:4px}
   /* phone: every size stays inside the box (wraps to a second line if needed), no side scroll */
   .sizeBarM{flex-wrap:wrap;overflow:visible;gap:6px;align-items:center}
   .sizeBarM>b{font-size:11px;margin-right:2px}
@@ -1573,15 +1581,18 @@ document.addEventListener("click",e=>{
     else if(v==="All"){S.cat="All";S.newOnly=false}
     else {S.cat=v;S.newOnly=false}
     S.size="";buildFilters();render();
-    // phone: land on the size row first (the customer picks a size, then the products come); desktop keeps the size row on top, so go to the products
+    // the tapped tile stays marked (Kids Boy and Kids Girl share one category, so the tile itself is marked)
+    const tile=go.closest(".catTile");
+    document.querySelectorAll(".catTile").forEach(b=>{const on=b===tile;b.classList.toggle("on",on);b.setAttribute("aria-pressed",String(on))});
+    // phone: land on the tiles and the size row together, so the category choice stays at the top
     const szM=document.getElementById("sizeBarM");
-    if(szM&&getComputedStyle(szM).display!=="none"&&S.cat!=="All"&&S.cat!=="NEW"){szM.scrollIntoView({behavior:"smooth",block:"start"});return}
+    if(szM&&getComputedStyle(szM).display!=="none"&&S.cat!=="All"&&S.cat!=="NEW"){document.getElementById("catRow").scrollIntoView({behavior:"smooth",block:"start"});return}
     document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"});
     window.scrollTo({top:document.querySelector(".shopHead").offsetTop-80,behavior:"smooth"});
     return;
   }
   const sz=e.target.closest("[data-size]");
-  if(sz){S.size=S.size===sz.dataset.size?"":sz.dataset.size;buildFilters();render();document.querySelector(".shopHead").scrollIntoView({behavior:"smooth",block:"start"});return}
+  if(sz){S.size=S.size===sz.dataset.size?"":sz.dataset.size;buildFilters();render();if(!window.matchMedia("(max-width:820px)").matches)document.querySelector(".shopHead").scrollIntoView({behavior:"smooth",block:"start"});return}
   const cat=e.target.closest("[data-cat]");
   if(cat){S.cat=cat.dataset.cat==="All"?"All":cat.dataset.cat;S.size="";buildFilters();render();return}
   const ty=e.target.closest("[data-type]");
@@ -1923,7 +1934,7 @@ const LOGO_CATS=[
 ];
 const catKey=s=>"cs-"+String(s).toLowerCase().replace(/\s+/g,"-");
 function renderCatLogos(){
-  $("catRow").innerHTML=LOGO_CATS.map(c=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}"><span>${esc(c.label)}</span></button>`).join("");
+  $("catRow").innerHTML=LOGO_CATS.map((c,i)=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}">${i===0?`<span class="tLbl"><em class="chooseHint">Choose</em><b>${esc(c.label)}</b></span>`:`<span>${esc(c.label)}</span>`}</button>`).join("");
 }
 function renderCatSections(){
   const seen=new Set();
