@@ -289,9 +289,7 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .catSec .more{font-size:13px;font-weight:600;color:var(--red);background:none;border:0;cursor:pointer}
 .chooseHint{display:none}
 @media (max-width:820px){.catRow{overflow:visible}}
-.catTile .tLbl{display:flex;align-items:center;justify-content:center;gap:3px;min-height:30px}
-.catTile .tLbl b{font-weight:600;font-size:12px;line-height:1.25;text-align:center}
-@media (max-width:820px){.chooseHint{display:inline-block;font-style:normal;font-size:8px;font-weight:800;line-height:1;color:#fff;background:var(--red);padding:3px 4px;border-radius:5px;white-space:nowrap;transform:translate(-2px,-2px)}}
+@media (max-width:820px){.lbl0{position:relative}.chooseHint{display:inline-block;position:absolute;left:-32px;top:50%;transform:translateY(calc(-50% - 2px));font-style:normal;font-size:8px;font-weight:800;line-height:1;color:#fff;background:var(--red);padding:3px 3px;border-radius:5px;white-space:nowrap}}
   body.catMode .chooseHint{display:none}
 .sizeTbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
 .sizeTbl th,.sizeTbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left}
@@ -1934,7 +1932,7 @@ const LOGO_CATS=[
 ];
 const catKey=s=>"cs-"+String(s).toLowerCase().replace(/\s+/g,"-");
 function renderCatLogos(){
-  $("catRow").innerHTML=LOGO_CATS.map((c,i)=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}">${i===0?`<span class="tLbl"><em class="chooseHint">Choose</em><b>${esc(c.label)}</b></span>`:`<span>${esc(c.label)}</span>`}</button>`).join("");
+  $("catRow").innerHTML=LOGO_CATS.map((c,i)=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}">${i===0?`<span class="lbl0"><em class="chooseHint">Choose</em>${esc(c.label)}</span>`:`<span>${esc(c.label)}</span>`}</button>`).join("");
 }
 function renderCatSections(){
   const seen=new Set();
