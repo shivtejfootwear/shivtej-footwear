@@ -28,6 +28,13 @@ button{cursor:pointer}
 /* header */
 .promo{background:var(--ink);color:#fff;text-align:center;font-size:12px;letter-spacing:.3px;padding:8px 12px;font-weight:300}
 .promo b{font-weight:600}
+.trustStrip{display:none;background:#fff;border-bottom:1px solid var(--line)}
+.trustStrip.on{display:block}
+.trustStrip ul{list-style:none;margin:0 auto;max-width:1200px;padding:9px 16px;display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+.trustStrip li{display:flex;align-items:center;gap:8px;min-width:0;font-size:12.5px;font-weight:600;color:#222}
+.trustStrip svg{flex:none;width:16px;height:16px;color:var(--red)}
+.trustStrip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (min-width:760px){.trustStrip ul{grid-template-columns:repeat(4,1fr);gap:0;padding:10px 16px}.trustStrip li{justify-content:center;padding:0 12px}.trustStrip li+li{border-left:1px solid var(--line)}}
 .top{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid var(--line)}
 .dd{position:relative}
 .dd>button{background:none;border:0;padding:6px 0;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink);border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
@@ -478,6 +485,7 @@ footer h5 a.mapLink svg{flex:none}
 <div id="maintOverlay" class="maintOverlay" style="display:none"><div class="maintBox"><b>Shivtej Footwear</b><p id="maintText"></p></div></div>
 
 <div class="promo"><b>New collection is live</b> · Live stock in every size · Men, Ladies and Kids</div>
+<div id="trustStrip" class="trustStrip" aria-label="Why shop with us"></div>
 <header class="top">
   <div class="wrap bar">
     <div class="logo" id="logoBox">SHIVTEJ FOOTWEAR</div>
@@ -615,6 +623,22 @@ const SB_URL="https://rvufigsdclnzelmepigb.supabase.co";
 const SB_KEY="sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TRUST_ICON={
+  tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  truck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6h12v10H2z"/><path d="M14 10h4l4 4v2h-8"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17.5" cy="17.5" r="1.8"/></svg>'
+};
+/* Trust line: up to three points from the admin (empty = hidden) and one fixed delivery point. Shown only when trustOn is on. */
+function renderTrust(){
+  const el=document.getElementById("trustStrip");if(!el)return;
+  const pts=[[CONFIG.trust1,"tag"],[CONFIG.trust2,"lock"],[CONFIG.trust3,"pin"]]
+    .filter(p=>String(p[0]||"").trim()).map(p=>[String(p[0]).trim(),p[1]]);
+  pts.push(["भारत में डिलीवरी","truck"]);
+  if(!CONFIG.trustOn){el.classList.remove("on");el.innerHTML="";return}
+  el.innerHTML='<ul>'+pts.map(p=>'<li>'+TRUST_ICON[p[1]]+'<span>'+esc(p[0])+'</span></li>').join("")+'</ul>';
+  el.classList.add("on");
+}
 const money=n=>"₹"+Number(n||0).toLocaleString("en-IN");
 /* product title everywhere on the site: brand + article only (the product name is no longer shown) */
 const dispName=p=>[p.brand,p.article].filter(Boolean).join(" ")||p.name;
@@ -1443,6 +1467,7 @@ document.querySelectorAll(".rv,.stg").forEach(el=>{if(io)io.observe(el);else el.
 /* ---- editable content (change these values later) ---- */
 const CONFIG={
   maintenanceOn:false, maintenanceText:"", announceOn:false, announceText:"",   /* set from the owner app: Admin Portal > Website switches */
+  trustOn:false, trust1:"100% ओरिजिनल प्रोडक्ट", trust2:"सुरक्षित भुगतान", trust3:"Akluj में अपनी दुकान",   /* trust line under the top bar: Admin Portal > भरोसे की पट्टी */
   filmVideo:"",          /* video file link, e.g. "https://.../brand.mp4" (empty = placeholder) */
   filmPoster:"",         /* poster image link (optional) */
   filmArticle:"",        /* article code; clicking the brand film opens this product (empty = no click) */
@@ -1517,7 +1542,7 @@ function applyExtras(){
   if(ov){if(CONFIG.maintenanceOn){document.getElementById("maintText").textContent=String(CONFIG.maintenanceText||"नई चीज़ें जल्द आ रही हैं। थोड़ी देर बाद फिर देखें।");ov.style.display="flex"}else{ov.style.display="none"}}
 }
 function applySettings(){
-  applyFilm(); applyExtras();
+  applyFilm(); applyExtras(); renderTrust();
   const lines=String(CONFIG.heroTitle||"").split("|").map(x=>x.trim()).filter(Boolean);
   $("heroTitle").innerHTML=(lines.length?lines:["New stock.","New style."]).map(l=>`<span class="ln">${esc(l)}</span>`).join("");
   $("heroText").textContent=CONFIG.heroText||"";
