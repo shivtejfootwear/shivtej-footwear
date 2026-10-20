@@ -336,6 +336,11 @@ footer h5 a.mapLink svg{flex:none}
   body.catMode #slider,body.catMode #sCtl,body.catMode #catSections,body.catMode main>section:not(#pick){display:none}
   body.catMode .filters{order:1}
   .sizeBarM{display:flex;border-top:0;padding-top:6px;padding-bottom:6px;margin-bottom:4px}
+  /* phone: every size stays inside the box (wraps to a second line if needed), no side scroll */
+  .sizeBarM{flex-wrap:wrap;overflow:visible;gap:6px;align-items:center}
+  .sizeBarM>b{font-size:11px;margin-right:2px}
+  .sizeBarM .sz2{flex:0 0 auto;min-width:0;width:34px;height:32px;padding:0;font-size:12px}
+  .sizeBar.askSize.sizeBarM{padding:8px 10px}
   .nav{display:none}
   .shop{grid-template-columns:1fr}
   .filters{position:static}
@@ -927,7 +932,7 @@ function renderSizeBar(){
   const inStock=new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
   // a category is chosen and no size yet: the row glows so the customer picks a size first (the glow class is toggled, so it plays once per choice)
   const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&sizes.length>0;
-  const szHtml='<b>'+(ask?'अपना साइज़ चुनें ↓':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(z)}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
+  const szHtml='<b>'+(ask?'चुनें':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(z)}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
   $("sizeBar").innerHTML=szHtml;
   $("sizeBarM").innerHTML=szHtml;
   $("sizeBar").classList.toggle("askSize",ask);
