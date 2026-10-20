@@ -444,6 +444,9 @@ footer h5 a.mapLink svg{flex:none}
 .hero h1 .ln:nth-child(2){animation-delay:.15s}
 @media (max-width:820px){.heroArt{position:relative;right:auto;top:auto;transform:none;margin:0 0 18px;animation:none}.heroArt .artImg{height:auto;width:min(68vw,300px);max-width:none;animation:heroIn 1s cubic-bezier(.2,.7,.2,1) backwards,spinY 14s linear 1s infinite}}
 @media (prefers-reduced-motion:reduce){.heroArt path{stroke-dashoffset:0!important}*{animation:none!important;transition:none!important}.card{opacity:1;transform:none}.stg>*{opacity:1!important}}
+.announceBar{background:#c62828;color:#fff;text-align:center;font-size:13px;font-weight:600;padding:8px 12px}
+.maintOverlay{position:fixed;inset:0;z-index:9999;background:#fff;align-items:center;justify-content:center;padding:24px;text-align:center;font-size:17px}
+.maintBox p{margin-top:10px;line-height:1.5}
 </style>
 <style>
 /* My orders list (Login popup) */
@@ -471,6 +474,8 @@ footer h5 a.mapLink svg{flex:none}
 <script src="season.js" defer></script>
 </head>
 <body>
+<div id="announceBar" class="announceBar" style="display:none"></div>
+<div id="maintOverlay" class="maintOverlay" style="display:none"><div class="maintBox"><b>Shivtej Footwear</b><p id="maintText"></p></div></div>
 
 <div class="promo"><b>New collection is live</b> · Live stock in every size · Men, Ladies and Kids</div>
 <header class="top">
@@ -1147,7 +1152,7 @@ function drawCheckout(){
   if(me){const m=$("cMob");m.value=me.mobile;m.readOnly=true;const n=$("cName");if(!n.value)n.value=me.name||""}
 }
 /* ---------- online payment (Razorpay) ---------- */
-const canPayOnline=o=>{const v=String(o.payment_status||"").toLowerCase();return v.includes("pending")&&!v.includes("cod")&&!v.includes("paid")};
+const canPayOnline=o=>{const v=String(o.payment_status||"").toLowerCase();return v.includes("pending")&&!v.includes("paid")};
 function loadRazorpay(){
   return new Promise((resolve,reject)=>{
     if(window.Razorpay)return resolve();
@@ -1437,6 +1442,7 @@ onScroll();
 document.querySelectorAll(".rv,.stg").forEach(el=>{if(io)io.observe(el);else el.classList.add("in")});
 /* ---- editable content (change these values later) ---- */
 const CONFIG={
+  maintenanceOn:false, maintenanceText:"", announceOn:false, announceText:"",   /* set from the owner app: Admin Portal > Website switches */
   filmVideo:"",          /* video file link, e.g. "https://.../brand.mp4" (empty = placeholder) */
   filmPoster:"",         /* poster image link (optional) */
   filmArticle:"",        /* article code; clicking the brand film opens this product (empty = no click) */
@@ -1503,8 +1509,15 @@ $("filmSound").onclick=e=>{
   if(!fv.muted)fv.play().catch(()=>{});
   syncSoundBtn();
 };
+function applyExtras(){
+  const bar=document.getElementById("announceBar");
+  if(bar){const t=String(CONFIG.announceText||"").trim();
+    if(CONFIG.announceOn&&t){bar.textContent=t;bar.style.display="block"}else{bar.style.display="none"}}
+  const ov=document.getElementById("maintOverlay");
+  if(ov){if(CONFIG.maintenanceOn){document.getElementById("maintText").textContent=String(CONFIG.maintenanceText||"नई चीज़ें जल्द आ रही हैं। थोड़ी देर बाद फिर देखें।");ov.style.display="flex"}else{ov.style.display="none"}}
+}
 function applySettings(){
-  applyFilm();
+  applyFilm(); applyExtras();
   const lines=String(CONFIG.heroTitle||"").split("|").map(x=>x.trim()).filter(Boolean);
   $("heroTitle").innerHTML=(lines.length?lines:["New stock.","New style."]).map(l=>`<span class="ln">${esc(l)}</span>`).join("");
   $("heroText").textContent=CONFIG.heroText||"";
