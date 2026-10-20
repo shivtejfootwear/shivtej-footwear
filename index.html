@@ -322,7 +322,15 @@ footer h5 a.mapLink svg{flex:none}
 .sz2:hover{border-color:var(--ink)}
 .sz2.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .sizeNote{font-size:13px;color:var(--mute)}
+.sz2.off{color:#b5b9bf;border-style:dashed;text-decoration:line-through;background:#fff;cursor:not-allowed}
+.sz2.off:hover{border-color:var(--line)}
+/* after a category is tapped the size row glows red 3 times (customer picks a size first) */
+.sizeBar.askSize{border:2px solid var(--red);border-radius:16px;padding:10px 14px;margin:8px auto 10px;animation:sizeGlow 1.5s ease-in-out 3}
+.sizeBar.askSize>b{color:var(--red)}
+@keyframes sizeGlow{0%,100%{box-shadow:0 0 0 0 rgba(227,6,19,0)}50%{box-shadow:0 0 0 5px rgba(227,6,19,.14),0 0 22px 4px rgba(227,6,19,.45)}}
+@media (prefers-reduced-motion:reduce){.sizeBar.askSize{animation:none}}
 .sizeBarM{display:none}
+.sizeBarM{scroll-margin-top:132px}
 @media (max-width:820px){
   #sizeBar{display:none}
   .sizeBarM{display:flex;border-top:0;padding-top:6px;padding-bottom:6px;margin-bottom:4px}
@@ -889,9 +897,15 @@ function cardHtml(p,i){
 function renderSizeBar(){
   const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:inCat(p,S.cat));
   const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
-  const szHtml='<b>Size</b>'+(sizes.length?sizes.map(z=>`<button class="sz2 ${S.size===z?"on":""}" data-size="${esc(z)}">${esc(z)}</button>`).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
+  // sizes with at least one pair in stock in this category; the others are crossed out and cannot be tapped
+  const inStock=new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
+  // a category is chosen and no size yet: the row glows so the customer picks a size first (the glow class is toggled, so it plays once per choice)
+  const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&sizes.length>0;
+  const szHtml='<b>'+(ask?'अपना साइज़ चुनें ↓':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(z)}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
   $("sizeBar").innerHTML=szHtml;
   $("sizeBarM").innerHTML=szHtml;
+  $("sizeBar").classList.toggle("askSize",ask);
+  $("sizeBarM").classList.toggle("askSize",ask);
 }
 function render(){
   renderSizeBar();
@@ -1345,7 +1359,11 @@ document.addEventListener("click",e=>{
     if(v==="NEW"){S.cat="NEW";S.newOnly=false}
     else if(v==="All"){S.cat="All";S.newOnly=false}
     else {S.cat=v;S.newOnly=false}
-    S.size="";buildFilters();render();document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"});
+    S.size="";buildFilters();render();
+    // phone: land on the size row first (the customer picks a size, then the products come); desktop keeps the size row on top, so go to the products
+    const szM=document.getElementById("sizeBarM");
+    if(szM&&getComputedStyle(szM).display!=="none"&&S.cat!=="All"&&S.cat!=="NEW"){szM.scrollIntoView({behavior:"smooth",block:"start"});return}
+    document.getElementById("shopTop")?.scrollIntoView({behavior:"smooth"});
     window.scrollTo({top:document.querySelector(".shopHead").offsetTop-80,behavior:"smooth"});
     return;
   }
