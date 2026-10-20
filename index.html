@@ -300,6 +300,12 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .filmBox:hover .play{transform:scale(1.08)}
 .filmCap{position:absolute;left:22px;bottom:18px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;opacity:.7}
 .filmBox.clickable{cursor:pointer}
+/* brand films inside the product list: after every 6 products, full width */
+.gFilm{grid-column:1/-1;position:relative;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:radial-gradient(120% 90% at 30% 0%,#2a2a2a,#0b0b0b);color:#fff;cursor:pointer;margin:4px 0}
+.gFilm video,.gFilm img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.gFilmCap{position:absolute;left:14px;bottom:12px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;opacity:.75;pointer-events:none}
+.gFilmSnd{position:absolute;right:12px;bottom:10px;background:#fff;color:#111;border:0;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700}
+.gFilm:focus-visible{outline:2px solid var(--red);outline-offset:3px}
 .band{position:relative;margin-top:56px;border-radius:24px;overflow:hidden;min-height:360px;color:#fff;display:flex;align-items:flex-end;background:linear-gradient(110deg,#0b0b0b,#2a2a2a 60%,#7d0a10)}
 .band .bg{position:absolute;left:0;right:0;top:-10%;height:120%;background-size:cover;background-position:center;will-change:transform}
 .band .bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -571,7 +577,7 @@ footer h5 a.mapLink svg{flex:none}
     <div id="catSections"></div>
   </section>
 
-  <section class="wrap film rv">
+  <section class="wrap film rv" hidden>
     <div class="filmBox" id="filmBox">
       <video id="filmVid" playsinline loop autoplay muted preload="auto"></video>
       <div class="filmCap" id="filmCap">Brand film</div>
@@ -938,6 +944,60 @@ function renderSizeBar(){
   $("sizeBar").classList.toggle("askSize",ask);
   $("sizeBarM").classList.toggle("askSize",ask);
 }
+/* brand films inside the product list: film 1 after 6 products, film 2 after 12, film 3 after 18, film 4 after 24 */
+function filmList(){
+  if(Array.isArray(CONFIG.films)&&CONFIG.films.length)return CONFIG.films;
+  return CONFIG.filmVideo?[{kind:"video",url:CONFIG.filmVideo,article:CONFIG.filmArticle||"",muted:true}]:[];
+}
+function filmHtml(f,k){
+  const art=esc(f.article||"");
+  const isVideo=f.kind==="video";
+  const muted=f.muted!==false;
+  const media=isVideo
+    ?`<video src="${esc(f.url)}" playsinline loop preload="metadata"${muted?" muted":""} data-fvid="${k}"></video>`
+    :`<img src="${esc(f.url)}" alt="Shivtej Footwear brand film" loading="lazy">`;
+  const snd=isVideo&&muted?`<button type="button" class="gFilmSnd" data-fsound="${k}">🔊 आवाज़ चालू करें</button>`:"";
+  return `<div class="gFilm" data-film="${k}"${art?` data-article="${art}" role="link" tabindex="0" aria-label="Open product ${art}"`:""}>${media}<span class="gFilmCap">Shivtej · Brand film</span>${snd}</div>`;
+}
+function gridHtml(list){
+  const films=filmList();
+  let out="";
+  list.forEach((p,i)=>{
+    out+=cardHtml(p,i);
+    const k=(i+1)/6-1;
+    if(Number.isInteger(k)&&k<4&&films[k]&&films[k].url)out+=filmHtml(films[k],k);
+  });
+  return out;
+}
+/* films play only while they are on the screen (saves data and battery) */
+let filmIO=null;
+function hydrateFilms(){
+  if(filmIO){filmIO.disconnect();filmIO=null}
+  const vids=[...document.querySelectorAll("video[data-fvid]")];
+  if(!vids.length)return;
+  if(!("IntersectionObserver" in window)){vids.forEach(v=>v.play().catch(()=>{}));return}
+  filmIO=new IntersectionObserver(entries=>entries.forEach(en=>{
+    const v=en.target;
+    if(!en.isIntersecting){v.pause();return}
+    v.play().catch(err=>{
+      if(!err||err.name!=="NotAllowedError")return;
+      // the browser does not allow sound without a tap: play muted and show the sound button
+      v.muted=true;v.play().catch(()=>{});
+      const box=v.closest(".gFilm");
+      if(box&&!box.querySelector(".gFilmSnd")){const b=document.createElement("button");b.type="button";b.className="gFilmSnd";b.dataset.fsound=box.dataset.film;b.textContent="🔊 आवाज़ चालू करें";box.appendChild(b)}
+    });
+  }),{threshold:0.35});
+  vids.forEach(v=>filmIO.observe(v));
+}
+function openByArticle(art){
+  const want=String(art||"").trim().toLowerCase();
+  if(!want)return;
+  const p=products.find(x=>String(x.article||"").trim().toLowerCase()===want);
+  if(p)openProduct(p.id);else toast("This product is not available right now.");
+}
+document.addEventListener("keydown",e=>{
+  if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("gFilm")&&e.target.dataset.article){e.preventDefault();openByArticle(e.target.dataset.article)}
+});
 function render(){
   renderSizeBar();
   document.body.classList.toggle("catMode",S.cat!=="All"&&S.cat!=="NEW");
@@ -947,7 +1007,8 @@ function render(){
   else list.sort((a,b)=>Number(b.newItem)-Number(a.newItem));
   $("title").textContent=(S.cat==="All"?"Shop All":(S.cat==="NEW"?"New Items":S.cat))+(S.size?" · Size "+S.size:"");
   $("count").textContent=list.length+" products";
-  $("grid").innerHTML=list.length?list.map(cardHtml).join(""):'<div class="empty">No products match this filter.</div>';
+  $("grid").innerHTML=list.length?gridHtml(list):'<div class="empty">No products match this filter.</div>';
+  hydrateFilms();
   hydrate();
   revealCards();
   document.querySelectorAll(".chip[data-cat]").forEach(c=>c.classList.toggle("on",c.dataset.cat===S.cat));
@@ -1005,11 +1066,12 @@ async function shareProduct(){
 let linkOpened=false;
 function openFromLink(){
   if(linkOpened)return;linkOpened=true;
-  const id=new URLSearchParams(location.search).get("p");
-  if(!id)return;
+  const qs=new URLSearchParams(location.search);
+  const id=qs.get("p"),art=qs.get("article");
+  if(!id&&!art)return;
   history.replaceState(null,"",location.pathname);
-  if(products.some(p=>p.id===id))openProduct(id);
-  else toast("This product is not available right now.");
+  if(id){if(products.some(p=>p.id===id))openProduct(id);else toast("This product is not available right now.")}
+  else openByArticle(art);
 }
 function curVariant(){return P.variants.find(v=>v.colour===pColour)||P.variants[0]}
 function drawProduct(){
@@ -1385,6 +1447,10 @@ async function placeOrder(){
 
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
+  const fsnd=e.target.closest("[data-fsound]");
+  if(fsnd){const v=fsnd.closest(".gFilm")?.querySelector("video");if(v){v.muted=false;v.play().catch(()=>{})}fsnd.remove();return}
+  const fbox=e.target.closest(".gFilm[data-article]");
+  if(fbox){openByArticle(fbox.dataset.article);return}
   const go=e.target.closest("[data-go]");
   if(go){
     const v=go.dataset.go;
@@ -1522,6 +1588,7 @@ const CONFIG={
   filmVideo:"",          /* video file link, e.g. "https://.../brand.mp4" (empty = placeholder) */
   filmPoster:"",         /* poster image link (optional) */
   filmArticle:"",        /* article code; clicking the brand film opens this product (empty = no click) */
+  films:[],              /* brand films in the product list: after 6, 12, 18, 24 products. [{kind:"video"|"photo", url, article, muted}] */
   bandImage:"",          /* photo for the bottom band (optional) */
   bandTitle:"New season, new step.",
   heroTitle:"New stock.|New style.",   /* line break with | */
