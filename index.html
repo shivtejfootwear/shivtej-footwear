@@ -325,6 +325,8 @@ footer h5{margin:0 0 10px;color:#fff;text-transform:uppercase;font-size:13px;let
 footer a,footer button{display:block;color:#cfcfcf;background:none;border:0;padding:4px 0;font-size:14px;text-align:left}
 footer a:hover,footer button:hover{color:#fff}
 footer p{font-size:13px;line-height:1.6;margin:0}
+footer p.about{margin-top:8px;font-size:12px;color:#9a9a9a}
+footer a.fLink{text-decoration:none}
 footer h5 a.mapLink{display:inline-flex;align-items:center;gap:6px;color:#fff;padding:0;font-size:inherit;text-transform:inherit;letter-spacing:inherit;text-decoration:none}
 footer h5 a.mapLink svg{flex:none}
 .sizeBar{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px;border-top:1px solid var(--line);padding-top:10px}
@@ -579,7 +581,7 @@ footer h5 a.mapLink svg{flex:none}
 <section class="hero">
   <div class="heroBg" id="heroBg"></div>
   <div class="wrap heroIn" id="heroIn">
-    <div class="heroArt" id="heroArt"><img id="heroArtImg" src="hero-sandal.png" alt="Chappal" class="artImg"></div>
+    <div class="heroArt" id="heroArt"><img id="heroArtImg" src="hero-sandal.png" width="801" height="1440" alt="Chappal" class="artImg"></div>
     <h1 id="heroTitle"><span class="ln">New stock.</span><span class="ln">New style.</span></h1>
     <p id="heroText">Every size, every colour, with live stock. From chappals to casual shoes, all in one place.</p>
     <button class="btn heroCta" data-go="NEW">View New Items</button>
@@ -664,8 +666,8 @@ footer h5 a.mapLink svg{flex:none}
 
 <footer>
   <div class="wrap cols">
-    <div><h5><a class="mapLink" href="https://maps.app.goo.gl/nKQhfxH1355uFAmc8?g_st=ac" target="_blank" rel="noopener" aria-label="Open our location in Google Maps">Shivtej Footwear<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z" fill="#EA4335"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg></a></h5><p>Bajaj Finance, Opposite Site, Akluj 413101</p></div>
-    <div><h5>Shop</h5><button data-go="All">All Products</button><button data-go="NEW">New Items</button><button data-go="Men">Men</button><button data-go="Ladies">Ladies</button><button data-go="Kids">Kids</button></div>
+    <div><h5><a class="mapLink" href="https://maps.app.goo.gl/nKQhfxH1355uFAmc8?g_st=ac" target="_blank" rel="noopener" aria-label="Open our location in Google Maps">Shivtej Footwear<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z" fill="#EA4335"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg></a></h5><p>Bajaj Finance, Opposite Site, Akluj 413101</p><p class="about">Footwear shop in Akluj for men, women, kids and seniors: chappals, sandals, slippers, casual shoes and luggage. See every size and colour with live stock, buy online, or visit the shop.</p></div>
+    <div><h5>Shop</h5><button data-go="All">All Products</button><button data-go="NEW">New Items</button><button data-go="Men">Men</button><button data-go="Ladies">Ladies</button><button data-go="Kids">Kids</button><a class="fLink" href="/p/">Product list</a></div>
     <div><h5>Help</h5><button id="helpOrder">Order status</button><button id="helpSize">Size guide</button><button id="helpCont">Contact</button></div>
     <div><h5>Newsletter</h5><p>Get updates on new collections.</p><div style="display:flex;gap:6px;margin-top:8px"><input id="nlMail" type="email" placeholder="Email" style="flex:1;min-width:0;padding:10px 12px;border-radius:999px;border:1px solid #333;background:#161616;color:#fff"><button id="nlBtn" class="btn red" style="padding:10px 14px;font-size:11px">Join</button></div></div>
   </div>
@@ -1852,7 +1854,7 @@ function renderSlides(){
   track.querySelectorAll(".sCust").forEach(el=>el.parentElement.remove());
   slideList().forEach(s=>{
     const pr=slideProduct(s.article);
-    const media=s.url?(s.kind==="video"?`<video class="sMedia" src="${esc(s.url)}" muted loop playsinline preload="metadata"></video>`:`<img class="sMedia" src="${esc(s.url)}" alt="">`):"";
+    const media=s.url?(s.kind==="video"?`<video class="sMedia" src="${esc(s.url)}" muted loop playsinline preload="metadata"></video>`:`<img class="sMedia" src="${esc(s.url)}" width="1600" height="900" alt="">`):"";
     /* the photo shows first; no product card on the screen. Tapping the photo opens the product (data-view on the section) */
     const btn=pr?`<button class="btn heroCta" data-view="${esc(pr.id)}">Shop now</button>`:"";
     const sec=document.createElement("div");sec.className="sSlide";
@@ -1932,7 +1934,7 @@ const LOGO_CATS=[
 ];
 const catKey=s=>"cs-"+String(s).toLowerCase().replace(/\s+/g,"-");
 function renderCatLogos(){
-  $("catRow").innerHTML=LOGO_CATS.map((c,i)=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" alt="${esc(c.label)}">${i===0?`<span class="lbl0"><em class="chooseHint">Choose</em>${esc(c.label)}</span>`:`<span>${esc(c.label)}</span>`}</button>`).join("");
+  $("catRow").innerHTML=LOGO_CATS.map((c,i)=>`<button class="catTile" data-go="${esc(c.match)}" aria-label="${esc(c.label)}"><img src="${esc(c.img)}" width="240" height="240" alt="${esc(c.label)}">${i===0?`<span class="lbl0"><em class="chooseHint">Choose</em>${esc(c.label)}</span>`:`<span>${esc(c.label)}</span>`}</button>`).join("");
 }
 function renderCatSections(){
   const seen=new Set();
