@@ -738,7 +738,7 @@ const dispName=p=>[p.brand,p.article].filter(Boolean).join(" ")||p.name;
 const offLabel=p=>{const m=Number(p.mrp)||0,s=Number(p.price)||0;if(m<=s||m<=0)return"";return`<span class="pOff">${Math.round((m-s)/m*100)}% OFF</span>`};
 
 let products=[];
-const S={cat:"All",brand:"",type:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
+const S={cat:"All",brand:"",type:"",sub:"",size:"",colour:"",price:"",sort:"new",newOnly:false,q:""};
 /* ---------- cart: items stay for 5 minutes ---------- */
 // An item stays in the cart for 5 minutes after it was added, then it is removed by itself.
 // The cart does not hold stock: stock is cut only when the payment is received (see site_place_order).
@@ -865,7 +865,7 @@ function mapRow(r){
   // one product can be in more than one category (saved as "Men, Senior Men"); each name is a category of its own
   const catList=String(r.category||"").split(",").map(normCat).filter(Boolean);
   return {id:String(r.id),name:r.name||"",article:r.article||"",brand:r.brand||"",category:catList.join(", "),cats:catList,
-    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item&&(!addedAt||Date.now()-addedAt<=NEW_DAYS*864e5),desc:r.description||"",type:String(r.product_type||"").trim(),variants};
+    price:Number(r.price)||0,mrp:Number(r.mrp)||Number(r.price)||0,newItem:!!r.new_item&&(!addedAt||Date.now()-addedAt<=NEW_DAYS*864e5),desc:r.description||"",type:String(r.product_type||"").trim(),sub:String(r.sub_category||"").trim(),variants};
 }
 async function loadProducts(){
   try{
@@ -919,6 +919,7 @@ function match(p){
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.type&&frKey(p.type)!==frKey(S.type))return false;
+  if(S.sub&&frKey(p.sub)!==frKey(S.sub))return false;
   if(S.priceMin!=null&&(p.price<S.priceMin||p.price>S.priceMax))return false;
   if(S.colour&&!p.variants.some(v=>v.colour===S.colour))return false;
   if(S.size&&!p.variants.some(v=>v.sizes.some(s=>s.size===S.size&&s.qty!==0)))return false;
@@ -969,6 +970,7 @@ const FR_ICON={
   brand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>',
   type:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18"/><path d="M5 17c0-5 3-8 7-8 2 0 3 1 4 3l3 2v3"/></svg>',
   colour:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
+  sub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
   price:""
 };
 let frOpen="";
@@ -980,6 +982,12 @@ function frList(k){
   const base=frBase();
   if(k==="brand")return [...new Set(base.map(p=>p.brand).filter(Boolean))].sort().map(v=>({v,l:v}));
   if(k==="colour")return [...new Set(base.flatMap(p=>p.variants.map(x=>x.colour)).filter(Boolean))].sort().map(v=>({v,l:v}));
+  // Category (5th filter): the categories of the chosen product type, only those that products really have
+  if(k==="sub"){
+    const seen=new Map();
+    base.filter(p=>!S.type||frKey(p.type)===frKey(S.type)).forEach(p=>{const t=String(p.sub||"").trim();if(t&&!seen.has(frKey(t)))seen.set(frKey(t),t)});
+    return [...seen.values()].sort().map(t=>({v:t,l:t}));
+  }
   if(k==="type"){
     const seen=new Map();
     base.forEach(p=>{const t=String(p.type||"").trim();if(t&&!seen.has(frKey(t)))seen.set(frKey(t),t)});
@@ -1016,7 +1024,8 @@ function buildFilterRow(){
     btn("brand",S.brand||"Brand",!!S.brand,FR_ICON.brand)+
     btn("type",S.type||"Type",!!S.type,FR_ICON.type)+
     btn("colour",S.colour||"Colour",!!S.colour,FR_ICON.colour)+
-    btn("price",priceOn?`₹${S.priceMin}–${S.priceMax}`:"Price",priceOn,FR_ICON.price);
+    btn("price",priceOn?`₹${S.priceMin}–${S.priceMax}`:"Price",priceOn,FR_ICON.price)+
+    (S.type&&frList("sub").length?btn("sub",S.sub||"Category",!!S.sub,FR_ICON.sub):"");
   const list=$("fList");
   if(!frOpen){list.classList.remove("open");list.innerHTML="";return}
   if(frOpen==="price"){
@@ -1026,7 +1035,7 @@ function buildFilterRow(){
     list.classList.add("open");
     return;
   }
-  const cur={brand:S.brand,type:S.type,colour:S.colour}[frOpen];
+  const cur={brand:S.brand,type:S.type,colour:S.colour,sub:S.sub}[frOpen];
   const items=frList(frOpen);
   list.innerHTML=[{v:"",l:"All"},...items].map(o=>{
     const on=o.v===""?!cur:frKey(o.v)===frKey(cur);
@@ -1600,7 +1609,8 @@ document.addEventListener("click",e=>{
   if(fo){
     const k=fo.dataset.fo,v=fo.dataset.val;
     if(k==="brand")S.brand=v;
-    if(k==="type")S.type=v;
+    if(k==="type"){S.type=v;S.sub=""}
+    if(k==="sub")S.sub=v;
     if(k==="colour")S.colour=v;
     frOpen="";buildFilters();render();return;
   }
@@ -1626,7 +1636,7 @@ document.addEventListener("click",e=>{
   const cat=e.target.closest("[data-cat]");
   if(cat){S.cat=cat.dataset.cat==="All"?"All":cat.dataset.cat;S.size="";buildFilters();render();return}
   const ty=e.target.closest("[data-type]");
-  if(ty){S.type=ty.dataset.type;buildFilters();render();return}
+  if(ty){S.type=ty.dataset.type;S.sub="";buildFilters();render();return}
   const jump=e.target.closest("[data-jump]");
   if(jump){document.getElementById(jump.dataset.jump)?.scrollIntoView({behavior:"smooth",block:"start"});return}
   if(e.target.closest(".heart"))return;
@@ -1719,7 +1729,7 @@ $("fColor").onchange=e=>{S.colour=e.target.value;render()};
 $("pMin").oninput=()=>{if(+$("pMin").value>+$("pMax").value)$("pMin").value=$("pMax").value;paintPrice();render()};
 $("pMax").oninput=()=>{if(+$("pMax").value<+$("pMin").value)$("pMax").value=$("pMin").value;paintPrice();render()};
 $("fNew").onchange=e=>{S.newOnly=e.target.checked;render()};
-$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",type:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
+$("reset").onclick=()=>{Object.assign(S,{cat:"All",brand:"",type:"",sub:"",size:"",colour:"",price:"",newOnly:false,q:""});$("q").value="";S.priceMin=null;S.priceMax=null;buildPrice();$("fNew").checked=false;$("sort").value="new";S.sort="new";buildFilters();render()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("ovProduct").classList.contains("show"))closeProduct();$("ovCart").classList.remove("show");$("ovBag").classList.remove("show")}});
 
 $("grid").innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
