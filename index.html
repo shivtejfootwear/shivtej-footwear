@@ -1042,8 +1042,14 @@ function cardVariant(p){
   const hit=want&&p.variants.find(x=>x.sizes.some(s=>s.size===want&&s.qty>0));
   return hit||p.variants[0];
 }
+// the price on the card matches the product page: the chosen size's own price (and MRP) when a size is picked at the top
+function cardPrice(p,v){
+  const s=S.size&&v.sizes.find(x=>x.size===S.size);
+  return s&&s.price>0?{...p,price:s.price,mrp:s.mrp>0?s.mrp:p.mrp}:p;
+}
 function cardHtml(p,i){
   const v=cardVariant(p);
+  const cp=cardPrice(p,v);
   const out=totalOf(p)<=0;
   const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(s.size)}</span>`).join("");
   const src=v.media[0]||"";
@@ -1054,7 +1060,7 @@ function cardHtml(p,i){
       <div class="brand">${esc(p.brand)}</div>
       <div class="name">${esc(p.article||p.name)}</div>
       ${dotsHtml(p)}
-      <div class="price">${money(p.price)}${p.mrp>p.price?`<s>${money(p.mrp)}</s>`:""}${offLabel(p)}</div>
+      <div class="price">${money(cp.price)}${cp.mrp>cp.price?`<s>${money(cp.mrp)}</s>`:""}${offLabel(cp)}</div>
       <div class="sizes">${sizes}</div>
       <div class="stock ${out?"out":""}">${out?"Out of stock":"Stock: "+totalOf(p)+" pcs"}</div>
       <div class="acts">
