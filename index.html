@@ -755,6 +755,9 @@ let cart=loadCart();
 let checkLines=[],checkFromCart=false;
 function renderCartCount(){const n=cart.reduce((a,c)=>a+c.qty,0);const el=$("cartN");if(el){el.textContent=n;el.style.display=n?"":"none"}}
 function stockRow(pid,colour,size){const p=products.find(x=>x.id===pid);const v=p&&p.variants.find(x=>x.colour===colour);return v?v.sizes.find(s=>s.size===size):null}
+// the selling price and MRP of one size: its own (extra size groups) when set, otherwise the product's
+function unitPrice(p,colour,size){const s=stockRow(p.id,colour,String(size));return s&&s.price>0?s.price:p.price}
+function unitMrp(p,colour,size){const s=stockRow(p.id,colour,String(size));return s&&s.price>0&&s.mrp>0?s.mrp:p.mrp}
 function addToCart(){
   const row=curVariant().sizes.find(s=>s.size===pSize);
   if(!row){toast("Select a size");return}
@@ -780,15 +783,15 @@ function bumpCart(i,d){
 function drawBag(){
   pruneCart();
   const rows=cart.map((c,i)=>({c,i,p:products.find(x=>x.id===c.pid)})).filter(r=>r.p);
-  const sub=rows.reduce((n,r)=>n+r.p.price*r.c.qty,0);
+  const sub=rows.reduce((n,r)=>n+unitPrice(r.p,r.c.colour,r.c.size)*r.c.qty,0);
   $("bPanel").innerHTML=`<button class="x" id="bX">×</button><h3>Cart</h3>
     <p class="sub">Items stay in your cart for 5 minutes. Stock is updated only after your payment is received.</p>
     ${rows.length?rows.map(({c,i,p})=>`<div class="bLine">
         <div class="bInfo"><b>${esc(dispName(p))}</b>
-          <div class="note">${esc(c.colour)} · Size ${esc(c.size)} · ${money(p.price)}</div>
+          <div class="note">${esc(c.colour)} · Size ${esc(c.size)} · ${money(unitPrice(p,c.colour,c.size))}</div>
           <div class="note">Stays ${Math.ceil(cartLeft(c)/60e3)} min more</div></div>
         <div class="qty"><button data-bm="${i}">−</button><span>${c.qty}</span><button data-bp="${i}">+</button></div>
-        <b>${money(p.price*c.qty)}</b>
+        <b>${money(unitPrice(p,c.colour,c.size)*c.qty)}</b>
         <button class="bRm" data-brm="${i}">Remove</button></div>`).join("")
       :'<p class="sub">Your cart is empty.</p>'}
     ${rows.length?`<div class="bill"><div class="brow sep"><span>Items total</span><b>${money(sub)}</b></div></div>
@@ -854,8 +857,8 @@ function mapRow(r){
   const variants=cols.map(c=>{
     const colour=(c&&typeof c==="object"?(c.name||c.colour||""):String(c||"")).trim();
     const sizes=(c&&Array.isArray(c.sizes)?c.sizes:[]).map(s=>typeof s==="object"
-      ?{size:String(s.size),qty:Math.max(0,Number(s.qty)||0)}
-      :{size:String(s),qty:0});
+      ?{size:String(s.size),qty:Math.max(0,Number(s.qty)||0),price:Number(s.price)||0,mrp:Number(s.mrp)||0}
+      :{size:String(s),qty:0,price:0,mrp:0});
     const imgs=(c&&Array.isArray(c.images)?c.images:[]).concat(Array.isArray(r.images)?r.images:[]);
     return {colour,sizes,media:imgs.filter(x=>typeof x==="string"&&x)};
   }).filter(v=>v.colour);
@@ -890,10 +893,15 @@ const COLOUR_HEX={red:"#c62828","लाल":"#c62828",blue:"#1e63c8","नील�
   white:"#ffffff","सफ़ेद":"#ffffff","सफेद":"#ffffff",grey:"#8a8a8a",gray:"#8a8a8a","ग्रे":"#8a8a8a",green:"#2e8b57","हरा":"#2e8b57",
   yellow:"#f2c200","पीला":"#f2c200",maroon:"#800000","मैरून":"#800000",pink:"#e77fa6","गुलाबी":"#e77fa6",orange:"#f08a24","नारंगी":"#f08a24",
   beige:"#d8c3a5","बेज":"#d8c3a5",tan:"#c69c6d",cream:"#f3e9d2","क्रीम":"#f3e9d2",purple:"#7b3fa0","बैंगनी":"#7b3fa0",gold:"#d4a017","सुनहरा":"#d4a017",silver:"#bfc3c8","चांदी":"#bfc3c8"};
+// colour names as the owner typed them ("D.BRN", "WINE", "Cream"): letters only, lower case, so the dot finds its colour
+const colourKey=c=>String(c||"").toLowerCase().replace(/[^a-zऀ-ॿ]/g,"");
+const COLOUR_KEYS=Object.assign({},...Object.entries(COLOUR_HEX).map(([k,v])=>({[colourKey(k)]:v})),
+  {wine:"#722f37",dbrn:"#4a2c1d",darkbrown:"#4a2c1d",brn:"#7b4a2a",brown:"#7b4a2a",cream:"#f3e9d2",white:"#ffffff",black:"#111111"});
+const colourHex=c=>COLOUR_KEYS[colourKey(c)]||"#c9c9c9";
 function dotsHtml(p){
   const cols=p.variants.map(v=>v.colour).filter(Boolean);
   if(!cols.length)return "";
-  const shown=cols.slice(0,6).map(c=>`<span class="dot" title="${esc(c)}" style="background:${COLOUR_HEX[c.trim().toLowerCase()]||"#c9c9c9"}"></span>`).join("");
+  const shown=cols.slice(0,6).map(c=>`<span class="dot" title="${esc(c)}" style="background:${colourHex(c)}"></span>`).join("");
   return `<div class="dots">${shown}${cols.length>6?`<span class="more">+${cols.length-6}</span>`:""}</div>`;
 }
 const allCats=()=>[...new Set(products.flatMap(p=>p.cats))].sort();
@@ -1028,8 +1036,14 @@ function buildFilterRow(){
 }
 
 /* ---------- product grid ---------- */
+// the colour shown on the card: when a size is chosen at the top, the first colour that has that size in stock
+function cardVariant(p){
+  const want=S.size;
+  const hit=want&&p.variants.find(x=>x.sizes.some(s=>s.size===want&&s.qty>0));
+  return hit||p.variants[0];
+}
 function cardHtml(p,i){
-  const v=p.variants[0];
+  const v=cardVariant(p);
   const out=totalOf(p)<=0;
   const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(s.size)}</span>`).join("");
   const src=v.media[0]||"";
@@ -1154,7 +1168,9 @@ function revealCards(){document.querySelectorAll(".card").forEach(c=>{if(io)io.o
 let P=null,pColour="",pSize="",pQty=1,pGi=0;
 function openProduct(id){
   P=products.find(p=>p.id===id);if(!P)return;
-  pColour=P.variants[0].colour;pSize="";pQty=1;pGi=0;
+  // a size chosen at the top opens the product in the colour that has it, with that size selected
+  const hit=S.size&&P.variants.find(x=>x.sizes.some(s=>s.size===S.size&&s.qty>0));
+  pColour=(hit||P.variants[0]).colour;pSize=hit?S.size:"";pQty=1;pGi=0;
   drawProduct();$("ovProduct").classList.add("show");
   pvOpenState(id);
   const pp=$("pPanel");pp.classList.add("enter");clearTimeout(pp._t);pp._t=setTimeout(()=>pp.classList.remove("enter"),1400);
@@ -1201,6 +1217,8 @@ function drawProduct(){
   const gal=[...new Set(v.media)];
   if(pGi>=gal.length)pGi=0;
   const cur=gal[pGi]||"";
+  // the price shown follows the chosen size (its own price, if it has one)
+  const Q=pSize?{...P,price:unitPrice(P,pColour,pSize),mrp:unitMrp(P,pColour,pSize)}:P;
   $("pPanel").innerHTML=`<button class="x" id="pX">×</button>
     <button class="pShare" id="pShare" aria-label="Share this product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg></button>
     <div class="pdp ${gal.length>1?"":"single"}">
@@ -1209,7 +1227,7 @@ function drawProduct(){
     <div class="pdpInfo">
     <div class="brand">${esc(P.brand)}</div>
     <h3>${esc(dispName(P))}</h3>
-    <div class="price" style="font-size:20px">${money(P.price)}${P.mrp>P.price?`<s>${money(P.mrp)}</s>`:""}${offLabel(P)}</div>
+    <div class="price" style="font-size:20px">${money(Q.price)}${Q.mrp>Q.price?`<s>${money(Q.mrp)}</s>`:""}${offLabel(Q)}</div>
     ${P.desc?`<p class="sub">${esc(P.desc)}</p>`:""}
     <div class="lab">Colour</div>
     <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}">${esc(x.colour)}</button>`).join("")}</div>
@@ -1264,7 +1282,7 @@ async function loadShipFee(){
    If prices can not be loaded, the fixed shipping charge applies and the shop chooses the courier. */
 let shipRates=null,shipPick=null,shipKey="",shipAll=false,shipT=0;
 const shipPairs=()=>buyLines().reduce((n,x)=>n+Number(x.qty||0),0);
-const shipValue=()=>Math.round(buyLines().reduce((n,x)=>n+Number(x.p.price||0)*Number(x.qty||0),0));
+const shipValue=()=>Math.round(buyLines().reduce((n,x)=>n+Number(unitPrice(x.p,x.colour,x.size)||0)*Number(x.qty||0),0));
 const curShipFee=()=>(shipPick?shipPick.rate:0)+SHIP_FEE;
 function resetShip(){shipRates=null;shipPick=null;shipKey="";shipAll=false}
 async function loadRates(){
@@ -1358,7 +1376,7 @@ async function applyCoupon(){
 }
 function paintCheckoutSum(){
   const lines=buyLines();
-  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:unitPrice(x.p,x.colour,x.size)*x.qty}));
   const sub=rows.reduce((n,r)=>n+r.amount,0);
   if(appliedCoupon&&appliedCoupon.sig!==couponSig(lines)){
     appliedCoupon=null;const m=$("cpnMsg");if(m)m.textContent="Coupon removed because the items changed. Apply it again.";
@@ -1552,7 +1570,7 @@ async function placeOrder(){
     return;
   }
   rememberOrder(orderId,me.mobile);showTrackIcon();
-  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:x.p.price*x.qty}));
+  const rows=lines.map(x=>({name:dispName(x.p),colour:x.colour,size:x.size,qty:x.qty,amount:unitPrice(x.p,x.colour,x.size)*x.qty}));
   $("cPanel").innerHTML=`<div class="done"><div class="tick">✓</div><h3>Order Received</h3>
     <p>Your order number: <b>${esc(orderId)}</b></p>
     <div style="text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0">${billHtml(rows,j.subtotal,j.shipping,j.total,Number(j.discount)||0,j.coupon||"")}</div>
