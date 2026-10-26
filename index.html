@@ -906,8 +906,16 @@ const COLOUR_HEX={red:"#c62828","लाल":"#c62828",blue:"#1e63c8","नील�
 // colour names as the owner typed them ("D.BRN", "WINE", "Cream"): letters only, lower case, so the dot finds its colour
 const colourKey=c=>String(c||"").toLowerCase().replace(/[^a-zऀ-ॿ]/g,"");
 const COLOUR_KEYS=Object.assign({},...Object.entries(COLOUR_HEX).map(([k,v])=>({[colourKey(k)]:v})),
-  {wine:"#722f37",dbrn:"#4a2c1d",darkbrown:"#4a2c1d",brn:"#7b4a2a",brown:"#7b4a2a",cream:"#f3e9d2",white:"#ffffff",black:"#111111"});
+  {wine:"#722f37",dbrn:"#4a2c1d",lavender:"#c9b6e4",lav:"#c9b6e4",wcream:"#f6efdc",wcr:"#f6efdc",wcrm:"#f6efdc",darkbrown:"#4a2c1d",brn:"#7b4a2a",brown:"#7b4a2a",cream:"#f3e9d2",white:"#ffffff",black:"#111111"});
 const colourHex=c=>COLOUR_KEYS[colourKey(c)]||"#c9c9c9";
+/* a colour button is filled with its colour; the name is written on it (dark or white letters, whichever reads better). Unknown colour = plain box */
+function colourBtnStyle(c){
+  const h=COLOUR_KEYS[colourKey(c)];
+  if(!h)return "";
+  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  const light=(0.299*r+0.587*g+0.114*b)>150;
+  return `background:${h};color:${light?"#1d1d1d":"#ffffff"};border-color:${h==="#ffffff"?"#cfcfcf":h}`;
+}
 function dotsHtml(p){
   const cols=p.variants.map(v=>v.colour).filter(Boolean);
   if(!cols.length)return "";
@@ -1070,7 +1078,8 @@ function buildFilterRow(){
   const items=frList(frOpen);
   list.innerHTML=[{v:"",l:"All"},...items].map(o=>{
     const on=o.v===""?!cur:frKey(o.v)===frKey(cur);
-    return `<button type="button" class="fo${on?" on":""}" data-fo="${frOpen}" data-val="${esc(o.v)}">${esc(o.l)}</button>`;
+    const cs=frOpen==="colour"&&o.v?colourBtnStyle(o.v):"";
+    return `<button type="button" class="fo${on?" on":""}" data-fo="${frOpen}" data-val="${esc(o.v)}"${cs?` style="${cs}"`:""}>${esc(o.l)}</button>`;
   }).join("")+(frOpen==="type"&&!items.length?'<span class="fnone">No type in this category yet</span>':"");
   list.classList.add("open");
 }
@@ -1276,7 +1285,7 @@ function drawProduct(){
     <div class="price" style="font-size:20px">${money(Q.price)}${Q.mrp>Q.price?`<s>${money(Q.mrp)}</s>`:""}${offLabel(Q)}</div>
     ${P.desc?`<p class="sub">${esc(P.desc)}</p>`:""}
     <div class="lab">Colour</div>
-    <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}">${esc(x.colour)}</button>`).join("")}</div>
+    <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}" style="${colourBtnStyle(x.colour)}">${esc(x.colour)}</button>`).join("")}</div>
     <div class="lab">Size</div>
     <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(s.size)}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
     <div class="lab">Quantity</div>
