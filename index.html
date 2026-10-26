@@ -278,8 +278,8 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .catRow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none;scroll-margin-top:175px}
 .catRow::-webkit-scrollbar{display:none}
 @media (min-width:700px){.catRow{gap:20px}}
-.catTile{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0;color:var(--ink);cursor:pointer;min-width:0}
-.catTile img{width:100%;max-width:104px;aspect-ratio:1/1;object-fit:contain;transition:transform .25s}
+.catTile{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;color:var(--ink);cursor:pointer;min-width:0}
+.catTile img{width:100%;max-width:104px;height:auto;aspect-ratio:1/1;object-fit:contain;transition:transform .25s}
 .catTile:hover img{transform:translateY(-4px)}
 .catTile span{font-size:12px;font-weight:600;text-align:center;line-height:1.25;min-height:30px}
 .catTile.on span{color:var(--red);font-weight:800}
@@ -1998,8 +1998,8 @@ function miniCard(p){
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[
-  {label:"Kids Boy",match:"Kids",section:"Kids",img:"cat/kids-boy.png"},
-  {label:"Kids Girl",match:"Kids",section:"Kids",img:"cat/kids-girl.png"},
+  {label:"Boy",match:"Kids",section:"Kids",img:"cat/kids-boy.png"},
+  {label:"Girl",match:"Kids",section:"Kids",img:"cat/kids-girl.png"},
   {label:"Men",match:"Men",section:"Men",img:"cat/gents.png"},
   {label:"Women",match:"Ladies",section:"Women",img:"cat/ladies.png"},
   {label:"Senior Men",match:"Senior Men",section:"Senior Men",img:"cat/senior-men.png"},
