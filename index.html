@@ -347,7 +347,7 @@ footer h5 a.mapLink svg{flex:none}
 @media (prefers-reduced-motion:reduce){.sizeBar.askSize{animation:none}}
 .sizeBarM{display:none}
 .sizeBarM{scroll-margin-top:175px}
-.fRow,.fList{display:none}
+.fRow,.fList,.subRow{display:none}
 @media (max-width:820px){
   #sizeBar{display:none}
   body.catMode #slider,body.catMode #sCtl,body.catMode #catSections,body.catMode main>section:not(#pick){display:none}
@@ -365,6 +365,15 @@ footer h5 a.mapLink svg{flex:none}
   .fRow .fi span{overflow:hidden;text-overflow:ellipsis;min-width:0}
   .fRow .fi.on{border-color:var(--red);color:var(--red)}
   body.catMode .fList.open{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px;padding:6px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .fRow .fi.brand svg{stroke:#1f6feb}
+  .fRow .fi.type svg{stroke:#e8590c}
+  .fRow .fi.colour svg{stroke:none}
+  .fRow .fi.price svg{stroke:#15803d}
+  body.catMode .subRow.open{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:-2px 0 8px;padding:6px;border:1px dashed #e5b4b4;border-radius:10px;background:#fdf7f7}
+  .subRow .sl{font-size:9px;font-weight:800;color:var(--mute);letter-spacing:.3px;margin-right:2px}
+  .sc{display:inline-flex;align-items:center;gap:4px;height:24px;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:10px;font-weight:700;background:#fff;color:var(--ink);white-space:nowrap}
+  .sc svg{width:11px;height:11px;flex:none}
+  .sc.on{background:var(--red);border-color:var(--red);color:#fff}
   .fo{height:22px;border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:10px;font-weight:600;background:#fff;color:var(--ink);white-space:nowrap}
   .fo.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .fo:disabled{opacity:.35}
@@ -603,6 +612,7 @@ footer h5 a.mapLink svg{flex:none}
     <div class="catRow" id="catRow"></div>
     <div class="sizeBar sizeBarM" id="sizeBarM"></div>
     <div class="fRow" id="fRow"></div>
+    <div class="subRow" id="subRow"></div>
     <div class="fList" id="fList"></div>
     <div id="catSections"></div>
   </section>
@@ -969,11 +979,32 @@ function buildFilters(){
 const FR_ICON={
   brand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>',
   type:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17h18"/><path d="M5 17c0-5 3-8 7-8 2 0 3 1 4 3l3 2v3"/></svg>',
-  colour:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
+  colour:'<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="cgA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ef4444"/><stop offset=".35" stop-color="#facc15"/><stop offset=".65" stop-color="#22c55e"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="url(#cgA)"/></svg>',
   sub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
-  price:""
+  price:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12M6 9h12M10 4c4 0 6 2 6 5s-2 5-6 5l6 6"/></svg>'
 };
 let frOpen="";
+/* logo for each category: V, box (PACK), lace, without lace, or a plain strap */
+function subIcon(t){
+  const u=String(t).toUpperCase();
+  const a='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  if(u.includes("PACK"))return a+'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>';
+  if(u.includes("WITHOUT"))return a+'<path d="M3 16h18M3 16c0-4 3-7 6-7h4l5 3v4z"/></svg>';
+  if(u.includes("LACE"))return a+'<path d="M3 15c4-1 6-5 9-5s4 3 9 3"/><path d="M9 9l2 2M12 7l2 2"/></svg>';
+  if(u.startsWith("V"))return '<svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="18" text-anchor="middle" font-size="18" font-weight="800" fill="currentColor" font-family="Arial,sans-serif">V</text></svg>';
+  return a+'<path d="M3 12h18"/><circle cx="7" cy="12" r="1.5"/><circle cx="17" cy="12" r="1.5"/></svg>';
+}
+/* the category row: shows under the chosen type (CHAPPAL -> V BELT, PACK); nothing chosen = all items of the type */
+function buildSubRow(){
+  const row=$("subRow");if(!row)return;
+  const items=S.type?frList("sub"):[];
+  if(!items.length){row.classList.remove("open");row.innerHTML="";return}
+  row.innerHTML='<span class="sl">CATEGORY</span>'+items.map(o=>{
+    const on=frKey(o.v)===frKey(S.sub);
+    return `<button type="button" class="sc${on?" on":""}" data-sub="${esc(o.v)}">${subIcon(o.v)}<span>${esc(o.l)}</span></button>`;
+  }).join("");
+  row.classList.add("open");
+}
 function frKey(s){return String(s||"").trim().toLowerCase()}
 /* the products of the chosen category (the lists show only what the category has) */
 function frBase(){return products.filter(p=>S.cat==="All"||S.cat==="NEW"||inCat(p,S.cat))}
@@ -1019,13 +1050,13 @@ function buildFilterRow(){
   const row=$("fRow");if(!row)return;
   const hi=+($("pMin").max||0);
   const priceOn=S.priceMin!=null&&(S.priceMin>0||S.priceMax<hi);
-  const btn=(k,label,on,icon)=>`<button type="button" class="fi${on?" on":""}" data-fr="${k}" aria-expanded="${frOpen===k}">${icon}<span>${esc(label)}</span></button>`;
+  const btn=(k,label,on,icon)=>`<button type="button" class="fi ${k}${on?" on":""}" data-fr="${k}" aria-expanded="${frOpen===k}">${icon}<span>${esc(label)}</span></button>`;
   row.innerHTML=
     btn("brand",S.brand||"Brand",!!S.brand,FR_ICON.brand)+
     btn("type",S.type||"Type",!!S.type,FR_ICON.type)+
     btn("colour",S.colour||"Colour",!!S.colour,FR_ICON.colour)+
-    btn("price",priceOn?`₹${S.priceMin}–${S.priceMax}`:"Price",priceOn,FR_ICON.price)+
-    (S.type&&frList("sub").length?btn("sub",S.sub||"Category",!!S.sub,FR_ICON.sub):"");
+    btn("price",priceOn?`₹${S.priceMin}–${S.priceMax}`:"Price",priceOn,FR_ICON.price);
+  buildSubRow();
   const list=$("fList");
   if(!frOpen){list.classList.remove("open");list.innerHTML="";return}
   if(frOpen==="price"){
@@ -1605,6 +1636,8 @@ document.addEventListener("click",e=>{
   if(fbox){openByArticle(fbox.dataset.article);return}
   const frb=e.target.closest("[data-fr]");
   if(frb){const k=frb.dataset.fr;frOpen=frOpen===k?"":k;buildFilterRow();if(frOpen)document.getElementById("fList").scrollIntoView({block:"nearest"});return}
+  const scb=e.target.closest("[data-sub]");
+  if(scb){const v=scb.dataset.sub;S.sub=frKey(S.sub)===frKey(v)?"":v;buildFilters();render();return}
   const fo=e.target.closest("[data-fo]");
   if(fo){
     const k=fo.dataset.fo,v=fo.dataset.val;
