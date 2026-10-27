@@ -943,6 +943,10 @@ const allCats=()=>[...new Set(products.flatMap(p=>p.cats))].sort();
 /* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly.
    A product with several categories appears under each of them. */
 const KIDS_CATS=["Kids","Boy","Girl"];
+/* Kids tab: the Kids items, plus Boy and Girl items that have size 8, 9 or 10 (those show as 8K, 9K, 10K under Kids).
+   Boy and Girl sizes 1 to 7 and 11 to 13 do not show under Kids. */
+const KID_BG_SIZES=["8","9","10"];
+const inKidsTab=(p,size)=>inCat(p,"Kids")||((inCat(p,"Boy")||inCat(p,"Girl"))&&(size?KID_BG_SIZES.includes(size):p.variants.some(v=>v.sizes.some(s=>KID_BG_SIZES.includes(s.size)&&s.qty>0))));
 const inCat=(p,cat)=>p.cats.includes(cat);
 
 /* search text without spaces, dashes and dots, so IG-251 = IG 251 = IG251 */
@@ -951,7 +955,8 @@ function match(p){
   // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
   const words=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   // Kids, Boy and Girl: when a size is tapped, the same size of the other Kids/Boy/Girl items shows too (8 under Boy also shows the 8 under Kids)
-  if(S.cat!=="All"&&S.cat!=="NEW"){const ok=(S.size&&(S.cat==="Boy"||S.cat==="Girl"))?(inCat(p,S.cat)||inCat(p,"Kids")):inCat(p,S.cat);if(!ok)return false}
+  if(S.cat==="Kids"){if(!inKidsTab(p,S.size))return false}
+  else if(S.cat!=="All"&&S.cat!=="NEW"){const ok=(S.size&&(S.cat==="Boy"||S.cat==="Girl"))?(inCat(p,S.cat)||inCat(p,"Kids")):inCat(p,S.cat);if(!ok)return false}
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.type&&frKey(p.type)!==frKey(S.type))return false;
@@ -1143,7 +1148,10 @@ function renderSizeBar(){
   const bgS=S.cat==="Boy"||S.cat==="Girl";
   const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort((a,b)=>bgOrder(a,b,bgS));
   // sizes with at least one pair in stock in this category; the others are crossed out and cannot be tapped
-  const inStock=new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
+  // Kids: Kids stock in every size, Boy/Girl stock only in 8, 9, 10
+  const inStock=S.cat==="Kids"
+    ? new Set(products.filter(p=>inKidsTab(p,null)).flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0&&(inCat(p,"Kids")||KID_BG_SIZES.includes(s.size))).map(s=>s.size))))
+    : new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
   const sets=SIZE_SETS[S.cat];
   // a category is chosen and no size yet: the row glows so the customer picks a size first (the glow class is toggled, so it plays once per choice)
   const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&(sets||sizes.length>0);
