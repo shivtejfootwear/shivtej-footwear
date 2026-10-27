@@ -338,6 +338,14 @@ footer h5 a.mapLink svg{flex:none}
 .sz2:hover{border-color:var(--ink)}
 .sz2.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .sizeNote{font-size:13px;color:var(--mute)}
+.szSets{display:flex;flex-direction:column;gap:6px;min-width:0}
+.szLine{display:flex;flex-wrap:nowrap;gap:6px}
+.szLine .sz2{min-width:40px;padding:0 9px}
+@media (max-width:820px){
+  .sizeBarM .szSets{flex:1 1 100%;gap:5px}
+  .sizeBarM .szLine{gap:3px;width:100%}
+  .sizeBarM .szLine .sz2{flex:1 1 0;width:auto;min-width:0;height:30px;padding:0 1px;font-size:11px}
+}
 .sz2.off{color:#b5b9bf;border-style:dashed;text-decoration:line-through;background:#fff;cursor:not-allowed}
 .sz2.off:hover{border-color:var(--line)}
 /* after a category is tapped the size row glows red 3 times (customer picks a size first) */
@@ -895,7 +903,12 @@ const totalOf=p=>p.variants.reduce((n,v)=>n+v.sizes.reduce((a,s)=>a+s.qty,0),0);
 const numSort=(a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0);
 /* Boy and Girl items: sizes 8 to 13 get the K (8K, 13K) and come first; the sizes after 13 (1 to 5) have no K and come after. Men, Ladies and others: no change */
 const isBG=cats=>(cats||[]).some(c=>c==="Boy"||c==="Girl");
-const sizeLabel=(z,bg)=>{const n=parseFloat(z);return bg&&n>=8&&n<=13?z+"K":z};
+/* size sets: each set is one line on the site. Kids: 1 to 10 and 15 to 21. Boy and Girl: 8 to 10, 11 to 13, then 1 to 5.
+   K label: Kids sizes 1 to 10 and 15 to 21 get K; Boy and Girl sizes 8 to 13 get K; Boy and Girl 1 to 5 have no K */
+const SEQ=(a,b)=>Array.from({length:b-a+1},(_,i)=>String(a+i));
+const SIZE_SETS={Kids:[SEQ(1,10),SEQ(15,21)],Boy:[SEQ(8,10),SEQ(11,13),SEQ(1,5)],Girl:[SEQ(8,10),SEQ(11,13),SEQ(1,5)]};
+const K_SIZES={Kids:[...SEQ(1,10),...SEQ(15,21)],Boy:SEQ(8,13),Girl:SEQ(8,13)};
+const kLabel=(z,cats)=>{const n=String(parseFloat(z));const hit=(cats||[]).some(c=>K_SIZES[c]&&K_SIZES[c].includes(n));return hit?z+"K":z};
 const bgOrder=(a,b,bg)=>{if(!bg)return numSort(a,b);const x=parseFloat(a)>=8?0:1,y=parseFloat(b)>=8?0:1;return (x-y)||numSort(a,b)};
 const allSizes=()=>[...new Set(products.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
 const allColours=()=>[...new Set(products.flatMap(p=>p.variants.map(v=>v.colour)))].sort();
@@ -937,7 +950,8 @@ const normQ=s=>String(s||"").toLowerCase().replace(/[^a-z0-9ऀ-ॿ]+/g,"");
 function match(p){
   // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
   const words=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if(S.cat!=="All"&&S.cat!=="NEW"&&!inCat(p,S.cat))return false;
+  // Kids, Boy and Girl: when a size is tapped, the same size of the other Kids/Boy/Girl items shows too (8 under Boy also shows the 8 under Kids)
+  if(S.cat!=="All"&&S.cat!=="NEW"){const ok=(S.size&&KIDS_CATS.includes(S.cat))?KIDS_CATS.some(c=>inCat(p,c)):inCat(p,S.cat);if(!ok)return false}
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.type&&frKey(p.type)!==frKey(S.type))return false;
@@ -1105,7 +1119,7 @@ function cardHtml(p,i){
   const cp=cardPrice(p,v);
   const out=totalOf(p)<=0;
   const bgc=isBG(p.cats);
-  const sizes=v.sizes.slice().sort((a,b)=>bgOrder(a.size,b.size,bgc)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(sizeLabel(s.size,bgc))}</span>`).join("");
+  const sizes=v.sizes.slice().sort((a,b)=>bgOrder(a.size,b.size,bgc)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(kLabel(s.size,p.cats))}</span>`).join("");
   const src=v.media[0]||"";
   return `<article class="card" style="transition-delay:${Math.min(i*40,300)}ms" data-pid="${esc(p.id)}" data-view="${esc(p.id)}">
     <div class="photo" data-src="${esc(src)}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}
@@ -1123,14 +1137,21 @@ function cardHtml(p,i){
     </div></article>`;
 }
 function renderSizeBar(){
-  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:inCat(p,S.cat));
+  const inGroup=KIDS_CATS.includes(S.cat);
+  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:(inGroup?KIDS_CATS.some(c=>inCat(p,c)):inCat(p,S.cat)));
   const bgS=S.cat==="Boy"||S.cat==="Girl";
   const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort((a,b)=>bgOrder(a,b,bgS));
   // sizes with at least one pair in stock in this category; the others are crossed out and cannot be tapped
   const inStock=new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
+  const sets=SIZE_SETS[S.cat];
   // a category is chosen and no size yet: the row glows so the customer picks a size first (the glow class is toggled, so it plays once per choice)
-  const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&sizes.length>0;
-  const szHtml='<b>'+(ask?'चुनें':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(sizeLabel(z,bgS))}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
+  const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&(sets||sizes.length>0);
+  const btn=z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(kLabel(z,[S.cat]))}</button>`};
+  // Kids, Boy, Girl: one line per set (Kids 1-10 / 15-21; Boy and Girl 8-10 / 11-13 / 1-5)
+  const body=sets
+    ? '<div class="szSets">'+sets.map(line=>`<div class="szLine">${line.map(btn).join("")}</div>`).join("")+'</div>'
+    : (sizes.length?sizes.map(btn).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
+  const szHtml='<b>'+(ask?'चुनें':'Size')+'</b>'+body;
   $("sizeBar").innerHTML=szHtml;
   $("sizeBarM").innerHTML=szHtml;
   $("sizeBar").classList.toggle("askSize",ask);
@@ -1294,7 +1315,7 @@ function drawProduct(){
     <div class="lab">Colour</div>
     <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}" style="${colourBtnStyle(x.colour)}">${esc(x.colour)}</button>`).join("")}</div>
     <div class="lab">Size</div>
-    <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(sizeLabel(s.size,bgP))}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
+    <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(kLabel(s.size,P.cats))}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
     <div class="lab">Quantity</div>
     <div class="qty"><button id="qM">−</button><span id="qV">${pQty}</span><button id="qP">+</button></div>
     <div class="row" style="display:grid;gap:8px"><button class="btn line" id="cartBtn" ${pSize?"":"disabled"}>Add to cart</button><button class="btn red" id="addBtn" ${pSize?"":"disabled"}>Buy now</button></div>
