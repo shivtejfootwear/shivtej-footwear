@@ -275,7 +275,7 @@ header.top.sc .bar{padding-top:9px;padding-bottom:9px}
 .mini2 .miniBuy{display:block;width:100%;margin-top:10px;padding:9px 8px;font-size:12px;text-align:center}
 .mini2 .photo .tag{font-size:10px;padding:3px 8px}
 @media (min-width:860px){.mini2 .name{font-size:15px}}
-.catRow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none;scroll-margin-top:175px}
+.catRow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;overflow-x:auto;padding:24px 2px 8px;scrollbar-width:none;scroll-margin-top:175px}
 .catRow::-webkit-scrollbar{display:none}
 @media (min-width:700px){.catRow{gap:20px}}
 .catTile{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;color:var(--ink);cursor:pointer;min-width:0}
@@ -893,6 +893,10 @@ async function loadProducts(){
 /* ---------- helpers ---------- */
 const totalOf=p=>p.variants.reduce((n,v)=>n+v.sizes.reduce((a,s)=>a+s.qty,0),0);
 const numSort=(a,b)=>(parseFloat(a)||0)-(parseFloat(b)||0);
+/* Boy and Girl items: sizes 8 to 13 get the K (8K, 13K) and come first; the sizes after 13 (1 to 5) have no K and come after. Men, Ladies and others: no change */
+const isBG=cats=>(cats||[]).some(c=>c==="Boy"||c==="Girl");
+const sizeLabel=(z,bg)=>{const n=parseFloat(z);return bg&&n>=8&&n<=13?z+"K":z};
+const bgOrder=(a,b,bg)=>{if(!bg)return numSort(a,b);const x=parseFloat(a)>=8?0:1,y=parseFloat(b)>=8?0:1;return (x-y)||numSort(a,b)};
 const allSizes=()=>[...new Set(products.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
 const allColours=()=>[...new Set(products.flatMap(p=>p.variants.map(v=>v.colour)))].sort();
 const allBrands=()=>[...new Set(products.map(p=>p.brand).filter(Boolean))].sort();
@@ -926,7 +930,7 @@ const allCats=()=>[...new Set(products.flatMap(p=>p.cats))].sort();
 /* the Kids section shows products in the Kids, Boy and Girl categories; other categories match exactly.
    A product with several categories appears under each of them. */
 const KIDS_CATS=["Kids","Boy","Girl"];
-const inCat=(p,cat)=>cat==="Kids"?p.cats.some(c=>KIDS_CATS.includes(c)):p.cats.includes(cat);
+const inCat=(p,cat)=>p.cats.includes(cat);
 
 /* search text without spaces, dashes and dots, so IG-251 = IG 251 = IG251 */
 const normQ=s=>String(s||"").toLowerCase().replace(/[^a-z0-9ऀ-ॿ]+/g,"");
@@ -1100,7 +1104,8 @@ function cardHtml(p,i){
   const v=cardVariant(p);
   const cp=cardPrice(p,v);
   const out=totalOf(p)<=0;
-  const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(s.size)}</span>`).join("");
+  const bgc=isBG(p.cats);
+  const sizes=v.sizes.slice().sort((a,b)=>bgOrder(a.size,b.size,bgc)).map(s=>`<span class="sz ${s.qty<=0?"off":""}">${esc(sizeLabel(s.size,bgc))}</span>`).join("");
   const src=v.media[0]||"";
   return `<article class="card" style="transition-delay:${Math.min(i*40,300)}ms" data-pid="${esc(p.id)}" data-view="${esc(p.id)}">
     <div class="photo" data-src="${esc(src)}"><span class="ph">👟</span>${p.newItem?'<span class="tag">NEW</span>':""}
@@ -1119,12 +1124,13 @@ function cardHtml(p,i){
 }
 function renderSizeBar(){
   const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:inCat(p,S.cat));
-  const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort(numSort);
+  const bgS=S.cat==="Boy"||S.cat==="Girl";
+  const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort((a,b)=>bgOrder(a,b,bgS));
   // sizes with at least one pair in stock in this category; the others are crossed out and cannot be tapped
   const inStock=new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.filter(s=>s.qty>0).map(s=>s.size))));
   // a category is chosen and no size yet: the row glows so the customer picks a size first (the glow class is toggled, so it plays once per choice)
   const ask=S.cat!=="All"&&S.cat!=="NEW"&&!S.size&&sizes.length>0;
-  const szHtml='<b>'+(ask?'चुनें':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(z)}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
+  const szHtml='<b>'+(ask?'चुनें':'Size')+'</b>'+(sizes.length?sizes.map(z=>{const off=!inStock.has(z);return `<button class="sz2 ${S.size===z?"on":""} ${off?"off":""}" data-size="${esc(z)}" ${off?"disabled":""}>${esc(sizeLabel(z,bgS))}</button>`}).join(""):'<span class="sizeNote">No sizes in this category yet</span>');
   $("sizeBar").innerHTML=szHtml;
   $("sizeBarM").innerHTML=szHtml;
   $("sizeBar").classList.toggle("askSize",ask);
@@ -1266,7 +1272,8 @@ function openFromLink(){
 function curVariant(){return P.variants.find(v=>v.colour===pColour)||P.variants[0]}
 function drawProduct(){
   const v=curVariant();
-  const sizes=v.sizes.slice().sort((a,b)=>numSort(a.size,b.size));
+  const bgP=isBG(P.cats);
+  const sizes=v.sizes.slice().sort((a,b)=>bgOrder(a.size,b.size,bgP));
   const avail=pSize?(sizes.find(s=>s.size===pSize)||{}).qty:null;
   /* all photos of this colour (and the product), without repeats */
   const gal=[...new Set(v.media)];
@@ -1287,7 +1294,7 @@ function drawProduct(){
     <div class="lab">Colour</div>
     <div class="sw">${P.variants.map(x=>`<button data-col="${esc(x.colour)}" class="${x.colour===pColour?"on":""}" style="${colourBtnStyle(x.colour)}">${esc(x.colour)}</button>`).join("")}</div>
     <div class="lab">Size</div>
-    <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(s.size)}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
+    <div class="sw">${sizes.map(s=>`<button class="szbtn ${s.size===pSize?"on":""}" data-sz="${esc(s.size)}" ${s.qty<=0?"disabled":""}>${esc(sizeLabel(s.size,bgP))}<small>${s.qty<=0?"Out":s.qty+" pcs"}</small></button>`).join("")}</div>
     <div class="lab">Quantity</div>
     <div class="qty"><button id="qM">−</button><span id="qV">${pQty}</span><button id="qP">+</button></div>
     <div class="row" style="display:grid;gap:8px"><button class="btn line" id="cartBtn" ${pSize?"":"disabled"}>Add to cart</button><button class="btn red" id="addBtn" ${pSize?"":"disabled"}>Buy now</button></div>
@@ -2007,8 +2014,9 @@ function miniCard(p){
 }
 /* category logos (one line) and the category-wise listing below them */
 const LOGO_CATS=[
-  {label:"Boy",match:"Kids",section:"Kids",img:"cat/kids-boy.png"},
-  {label:"Girl",match:"Kids",section:"Kids",img:"cat/kids-girl.png"},
+  {label:"Kids",match:"Kids",section:"Kids",img:"cat/kids.png"},
+  {label:"Boy",match:"Boy",section:"Boy",img:"cat/kids-boy.png"},
+  {label:"Girl",match:"Girl",section:"Girl",img:"cat/kids-girl.png"},
   {label:"Men",match:"Men",section:"Men",img:"cat/gents.png"},
   {label:"Women",match:"Ladies",section:"Women",img:"cat/ladies.png"},
   {label:"Senior Men",match:"Senior Men",section:"Senior Men",img:"cat/senior-men.png"},
