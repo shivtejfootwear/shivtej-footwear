@@ -951,7 +951,7 @@ function match(p){
   // every word typed must appear somewhere in name, article, brand, category or colour (in any order)
   const words=S.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   // Kids, Boy and Girl: when a size is tapped, the same size of the other Kids/Boy/Girl items shows too (8 under Boy also shows the 8 under Kids)
-  if(S.cat!=="All"&&S.cat!=="NEW"){const ok=(S.size&&KIDS_CATS.includes(S.cat))?KIDS_CATS.some(c=>inCat(p,c)):inCat(p,S.cat);if(!ok)return false}
+  if(S.cat!=="All"&&S.cat!=="NEW"){const ok=(S.size&&(S.cat==="Boy"||S.cat==="Girl"))?(inCat(p,S.cat)||inCat(p,"Kids")):inCat(p,S.cat);if(!ok)return false}
   if(S.cat==="NEW"||S.newOnly){if(!p.newItem)return false}
   if(S.brand&&p.brand!==S.brand)return false;
   if(S.type&&frKey(p.type)!==frKey(S.type))return false;
@@ -1137,8 +1137,9 @@ function cardHtml(p,i){
     </div></article>`;
 }
 function renderSizeBar(){
-  const inGroup=KIDS_CATS.includes(S.cat);
-  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:(inGroup?KIDS_CATS.some(c=>inCat(p,c)):inCat(p,S.cat)));
+  // Boy and Girl: the size row also counts Kids stock (a tapped size shows Kids items too). Kids: only Kids stock.
+  const withKids=S.cat==="Boy"||S.cat==="Girl";
+  const base=products.filter(p=>(S.cat==='All'||S.cat==='NEW')?true:(inCat(p,S.cat)||(withKids&&inCat(p,"Kids"))));
   const bgS=S.cat==="Boy"||S.cat==="Girl";
   const sizes=[...new Set(base.flatMap(p=>p.variants.flatMap(v=>v.sizes.map(s=>s.size))))].sort((a,b)=>bgOrder(a,b,bgS));
   // sizes with at least one pair in stock in this category; the others are crossed out and cannot be tapped
