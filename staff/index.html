@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Shivtej Managers">
+<meta name="robots" content="noindex, nofollow">
+<title>Shivtej Managers</title>
+<style>
+  :root { --red:#c62828; --bg:#f4f4f4; --card:#fff; --ink:#222; --mute:#666; --line:#ddd; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system, Arial, "Noto Sans Devanagari", sans-serif; background:var(--bg); color:var(--ink); padding-bottom:env(safe-area-inset-bottom); }
+  header { background:var(--red); color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; font-size:18px; font-weight:bold; position:sticky; top:0; z-index:5; }
+  header button { background:rgba(255,255,255,.2); color:#fff; border:0; border-radius:8px; padding:6px 10px; font-size:13px; }
+  .wrap { padding:12px 14px 40px; max-width:560px; margin:0 auto; }
+  input, button { font-size:16px; font-family:inherit; }
+  input[type=text], input[type=tel], input:not([type]) { width:100%; padding:12px; border:1px solid #bbb; border-radius:10px; background:#fff; margin-bottom:10px; }
+  .btn { width:100%; background:var(--red); color:#fff; border:0; border-radius:10px; padding:13px; font-weight:bold; margin-top:4px; }
+  .btn.ghost { background:#fff; color:var(--red); border:1px solid var(--red); }
+  .msg { color:var(--red); font-size:14px; min-height:20px; margin-top:8px; }
+  nav { display:flex; gap:8px; margin-bottom:12px; }
+  nav button { flex:1; padding:10px; border:1px solid var(--red); background:#fff; color:var(--red); border-radius:10px; font-weight:bold; }
+  nav button.on { background:var(--red); color:#fff; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 12px; }
+  .chip { border:1px solid #888; border-radius:16px; padding:6px 11px; font-size:13px; background:#fff; }
+  .chip.on { background:var(--red); color:#fff; border-color:var(--red); }
+  .card { background:var(--card); border-radius:12px; padding:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+  .card .top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .card .title { font-weight:bold; font-size:15px; }
+  .card .sub { color:var(--mute); font-size:12px; margin-top:2px; }
+  .mrp { color:#2e7d32; font-weight:bold; white-space:nowrap; }
+  .col { font-size:14px; margin-top:8px; padding-top:8px; border-top:1px solid #eee; }
+  .out { color:#c62828; font-size:12px; }
+  .scan { background:#222; color:#fff; border:0; border-radius:12px; padding:14px; width:100%; font-weight:bold; margin-bottom:10px; }
+  #camBox { margin-bottom:10px; }
+  #cam { width:100%; border-radius:12px; background:#000; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .qty button { width:34px; height:34px; border:1px solid #888; background:#fff; border-radius:8px; font-size:18px; }
+  .qty span { display:inline-block; min-width:28px; text-align:center; font-weight:bold; }
+  .num { background:var(--red); color:#fff; border-radius:50%; width:22px; height:22px; text-align:center; line-height:22px; font-size:12px; display:inline-block; margin-right:6px; }
+  .link { background:none; border:0; color:var(--red); font-weight:bold; padding:6px 4px; }
+  h3 { margin:18px 0 8px; font-size:16px; }
+  .empty { color:var(--mute); text-align:center; padding:20px 0; font-size:14px; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#333; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90%; text-align:center; }
+  #toast.show { opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <span>Shivtej Managers</span>
+  <button id="logoutBtn" hidden>बाहर निकलें</button>
+</header>
+
+<div class="wrap">
+  <!-- login -->
+  <section id="login" hidden>
+    <h3 style="margin-top:20px">लॉगिन</h3>
+    <input type="tel" id="mobile" inputmode="numeric" placeholder="मोबाइल नंबर" maxlength="10" autocomplete="tel">
+    <input type="text" id="code" placeholder="लॉगिन कोड" autocomplete="one-time-code">
+    <button class="btn" id="loginBtn">लॉगिन करें</button>
+    <div class="msg" id="loginMsg"></div>
+  </section>
+
+  <!-- main -->
+  <section id="app" hidden>
+    <nav>
+      <button data-tab="cat" class="on">कैटलॉग</button>
+      <button data-tab="bill">बिल बनाएँ</button>
+    </nav>
+
+    <div id="tab-cat">
+      <input type="text" id="q" placeholder="आर्टिकल, रंग, साइज़, बारकोड खोजें">
+      <div class="chips" id="chips"></div>
+      <div id="list"></div>
+    </div>
+
+    <div id="tab-bill" hidden>
+      <button class="scan" id="scanBtn">📷 बारकोड स्कैन करें</button>
+      <div id="camBox" hidden>
+        <video id="cam" playsinline muted></video>
+        <button class="btn ghost" id="camStop" style="margin-top:8px">कैमरा बंद करें</button>
+      </div>
+      <input type="text" id="manual" placeholder="बारकोड लिखकर Enter दबाएँ" inputmode="numeric">
+      <div id="cart"></div>
+      <button class="btn" id="sendBtn">मालिक को बिल भेजें</button>
+      <button class="btn ghost" id="newBtn" hidden style="margin-top:8px">नया बिल शुरू करें</button>
+
+      <h3>पेंडिंग बिल</h3>
+      <div id="pending"></div>
+    </div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+const SUPA = 'https://rvufigsdclnzelmepigb.supabase.co';
+const KEY = 'sb_publishable_YFlygJkQiunpibtfKOBv5w_sR96do0w';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = v => '₹' + Number(v || 0).toLocaleString('en-IN');
+
+// same device id on this phone every time (the owner sees it in Staff)
+const dev = (() => {
+  let d = null;
+  try { d = localStorage.getItem('sm_dev'); } catch (e) {}
+  if (!d) { d = 'ios-' + Math.random().toString(36).slice(2) + Date.now().toString(36); try { localStorage.setItem('sm_dev', d); } catch (e) {} }
+  return d;
+})();
+let token = null, staffName = '';
+try { token = localStorage.getItem('sm_tok'); staffName = localStorage.getItem('sm_name') || ''; } catch (e) {}
+
+let products = [], cat = 'सब', cart = [], editId = null;
+
+// calls the same Supabase functions the Android Managers app uses
+async function rpc(fn, args) {
+  const r = await fetch(`${SUPA}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { apikey: KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args)
+  });
+  const t = await r.text();
+  if (!r.ok) {
+    if (t.includes('NOT_ALLOWED')) throw new Error('NOT_ALLOWED');
+    let m = ''; try { m = JSON.parse(t).message || ''; } catch (e) {}
+    throw new Error(m || ('HTTP ' + r.status));
+  }
+  return t ? JSON.parse(t) : null;
+}
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function handleErr(e) {
+  if (e && e.message === 'NOT_ALLOWED') { toast('आपका एक्सेस बंद कर दिया गया है'); logout(); }
+  else toast('कनेक्शन में दिक्कत है, फिर कोशिश करें');
+}
+
+function showLogin() { $('login').hidden = false; $('app').hidden = true; $('logoutBtn').hidden = true; }
+function showApp() { $('login').hidden = true; $('app').hidden = false; $('logoutBtn').hidden = false; }
+function logout() {
+  token = null; staffName = '';
+  try { localStorage.removeItem('sm_tok'); localStorage.removeItem('sm_name'); } catch (e) {}
+  cart = []; editId = null; stopCam(); showLogin();
+}
+
+// ---------- login ----------
+$('loginBtn').onclick = async () => {
+  $('loginMsg').textContent = '';
+  try {
+    const r = await rpc('staff_login', { p_mobile: $('mobile').value.trim(), p_code: $('code').value.trim(),
+      p_device: dev, p_device_name: 'iPhone (Safari)' });
+    if (!r || r.error) { $('loginMsg').textContent = r && r.error === 'NO_CODE' ? 'इस नंबर का कोड नहीं है' : 'नंबर या कोड गलत है'; return; }
+    token = r.token; staffName = r.name || '';
+    try { localStorage.setItem('sm_tok', token); localStorage.setItem('sm_name', staffName); } catch (e) {}
+    start();
+  } catch (e) { $('loginMsg').textContent = 'कनेक्शन में दिक्कत है, फिर कोशिश करें'; }
+};
+$('logoutBtn').onclick = logout;
+
+async function start() {
+  showApp();
+  try { await rpc('staff_check', { p_token: token, p_device: dev }); }
+  catch (e) { return handleErr(e); }
+  loadCatalog(); loadBills();
+}
+
+// ---------- catalog (MRP only, view only) ----------
+async function loadCatalog() {
+  try { products = (await rpc('staff_catalog', { p_token: token, p_device: dev })) || []; }
+  catch (e) { return handleErr(e); }
+  renderChips(); renderList();
+}
+const catsOf = p => String(p.category || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+function renderChips() {
+  const set = new Set(); products.forEach(p => catsOf(p).forEach(c => set.add(c)));
+  $('chips').innerHTML = ['सब', ...[...set].sort()].map(c =>
+    `<button class="chip ${c === cat ? 'on' : ''}" data-c="${esc(c)}">${esc(c)}</button>`).join('');
+}
+$('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; cat = b.dataset.c; renderChips(); renderList(); };
+$('q').oninput = renderList;
+
+function renderList() {
+  const q = $('q').value.trim().toLowerCase();
+  const list = products.filter(p => {
+    if (cat !== 'सब' && !catsOf(p).includes(cat)) return false;
+    if (!q) return true;
+    const hay = [p.article, p.name, p.brand, p.type, ...p.colours.map(c => c.colour),
+      ...p.colours.flatMap(c => c.sizes.map(s => s.size))].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+  if (!list.length) { $('list').innerHTML = '<div class="empty">कोई माल नहीं मिला</div>'; return; }
+  $('list').innerHTML = list.map(p => {
+    const cols = p.colours.map(c => {
+      const ins = c.sizes.filter(s => s.in).map(s => s.size);
+      return `<div class="col"><b>${esc(c.colour)}</b> · ${ins.length ? 'साइज़ ' + ins.map(esc).join(', ') : '<span class="out">अभी स्टॉक नहीं</span>'}</div>`;
+    }).join('');
+    return `<div class="card"><div class="top"><div><div class="title">${esc(p.article || p.name)}</div>
+      <div class="sub">${esc(p.brand)}${p.type ? ' · ' + esc(p.type) : ''}</div></div>
+      <div class="mrp">${money(p.mrp)}</div></div>${cols}</div>`;
+  }).join('');
+}
+
+// ---------- make bill ----------
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  $('tab-cat').hidden = b.dataset.tab !== 'cat';
+  $('tab-bill').hidden = b.dataset.tab !== 'bill';
+});
+
+async function lookupCode(code) {
+  code = String(code || '').trim();
+  if (!code) return;
+  try {
+    const r = await rpc('staff_lookup', { p_token: token, p_device: dev, p_code: code });
+    if (!r || !r.found) return toast('यह बारकोड नहीं मिला');
+    addItem({ productId: r.productId, article: r.article, name: r.name, colour: r.colour, size: r.size,
+      barcode: r.barcode, qty: 1, mrp: Number(r.mrp || 0), stock: (r.stock ?? -1) });
+  } catch (e) { handleErr(e); }
+}
+function addItem(it) {
+  const i = cart.findIndex(c => c.productId === it.productId && c.colour === it.colour && c.size === it.size);
+  const have = i >= 0 ? cart[i].qty : 0;
+  if (it.stock >= 0 && have + it.qty > it.stock) return toast(`स्टॉक में सिर्फ ${it.stock} है`);
+  if (i >= 0) cart[i].qty = have + it.qty; else cart.push(it);
+  toast(`जोड़ा: ${it.article} ${it.size}`);
+  renderCart();
+}
+
+function renderCart() {
+  $('newBtn').hidden = editId === null;
+  if (!cart.length) { $('cart').innerHTML = '<div class="empty">बिल में अभी कुछ नहीं</div>'; return; }
+  $('cart').innerHTML = cart.map((c, i) => `<div class="card"><div class="row">
+      <div><b>${esc(c.article)}</b> · ${esc(c.colour)} · साइज़ ${esc(c.size)}<div class="sub">MRP ${money(c.mrp)}</div></div>
+      <div class="qty"><button data-i="${i}" data-d="-1">−</button><span>${c.qty}</span><button data-i="${i}" data-d="1">+</button></div>
+    </div><div style="text-align:right"><button class="link" data-rm="${i}">हटाएँ</button></div></div>`).join('');
+}
+$('cart').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.rm !== undefined) { cart.splice(+b.dataset.rm, 1); }
+  else {
+    const c = cart[+b.dataset.i]; const n = c.qty + Number(b.dataset.d);
+    if (n < 1) return;
+    if (c.stock >= 0 && n > c.stock) return toast(`स्टॉक में सिर्फ ${c.stock} है`);
+    c.qty = n;
+  }
+  renderCart();
+};
+
+$('sendBtn').onclick = async () => {
+  if (!cart.length) return toast('बिल खाली है');
+  const items = cart.map(c => ({ productId: c.productId, article: c.article, name: c.name, colour: c.colour,
+    size: c.size, barcode: c.barcode, qty: c.qty, mrp: c.mrp }));
+  try {
+    if (editId) await rpc('staff_bill_update', { p_token: token, p_device: dev, p_id: editId, p_items: items });
+    else await rpc('staff_bill_send', { p_token: token, p_device: dev, p_items: items });
+    toast('बिल मालिक को भेज दिया');
+    cart = []; editId = null; renderCart(); loadBills();
+  } catch (e) { handleErr(e); }
+};
+$('newBtn').onclick = () => { cart = []; editId = null; renderCart(); };
+
+async function loadBills() {
+  try {
+    const list = (await rpc('staff_bills_list', { p_token: token, p_device: dev })) || [];
+    if (!list.length) { $('pending').innerHTML = '<div class="empty">कोई पेंडिंग बिल नहीं</div>'; return; }
+    $('pending').innerHTML = list.map((b, i) => {
+      const items = (b.items || []).map(it => `${esc(it.article)} · ${esc(it.colour)} · ${esc(it.size)} × ${it.qty}`).join('<br>');
+      return `<div class="card"><div><span class="num">${i + 1}</span><b>बिल ${i + 1}</b></div>
+        <div class="sub" style="margin:6px 0">${items}</div>
+        <div class="row"><button class="link" data-edit="${esc(b.id)}">बदलें</button>
+        <button class="link" data-del="${esc(b.id)}">रद्द करें</button></div></div>`;
+    }).join('');
+    window._bills = list;
+  } catch (e) { handleErr(e); }
+}
+$('pending').onclick = async e => {
+  const ed = e.target.dataset.edit, del = e.target.dataset.del;
+  if (ed) {
+    const b = (window._bills || []).find(x => x.id === ed); if (!b) return;
+    cart = (b.items || []).map(it => ({ ...it, stock: -1, mrp: Number(it.mrp || 0), qty: Number(it.qty || 1) }));
+    editId = ed; renderCart(); document.querySelector('nav button[data-tab="bill"]').click();
+  }
+  if (del) {
+    if (!confirm('यह बिल रद्द करें?')) return;
+    try { await rpc('staff_bill_delete', { p_token: token, p_device: dev, p_id: del }); loadBills(); }
+    catch (err) { handleErr(err); }
+  }
+};
+
+// ---------- camera scan (ZXing) and typed code ----------
+let reader = null, lastCode = '', lastAt = 0;
+$('scanBtn').onclick = async () => {
+  $('camBox').hidden = false;
+  try {
+    if (!reader) reader = new ZXing.BrowserMultiFormatReader();
+    await reader.decodeFromVideoDevice(undefined, $('cam'), res => {
+      if (!res) return;
+      const c = res.getText();
+      if (c === lastCode && Date.now() - lastAt < 1500) return;
+      lastCode = c; lastAt = Date.now();
+      lookupCode(c);
+    });
+  } catch (e) { toast('कैमरा नहीं खुला, बारकोड हाथ से लिखें'); $('camBox').hidden = true; }
+};
+function stopCam() { try { reader && reader.reset(); } catch (e) {} $('camBox').hidden = true; }
+$('camStop').onclick = stopCam;
+$('manual').onkeydown = e => { if (e.key === 'Enter') { lookupCode($('manual').value); $('manual').value = ''; } };
+
+// ---------- start ----------
+if (token) start(); else showLogin();
+</script>
+</body>
+</html>
